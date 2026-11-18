@@ -1,0 +1,14 @@
+{
+  "name": "vexcast-monorepo",
+  "private": true,
+  "license": "GPL-3.0-or-later",
+  "packageManager": "pnpm@10.28.0",
+  "scripts": {
+    "dev": "pnpm --filter @vexcast/desktop dev",
+    "build:ui": "pnpm --filter @vexcast/desktop build",
+    "tauri": "pnpm --filter @vexcast/desktop tauri",
+    "server": "cargo run -p vexcast-server --",
+    "mobile": "pnpm --filter @vexcast/mobile start",
+    "typecheck": "pnpm -r typecheck"
+  }
+}

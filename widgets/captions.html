@@ -1,0 +1,224 @@
+<!doctype html>
+<!-- Vexcast live captions widget. SPDX-License-Identifier: GPL-3.0-or-later -->
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<title>Vexcast · Subtítulos</title>
+<link rel="stylesheet" href="shared/widget.css">
+<style>
+  :root {
+    --fs: 40px;
+    --accent: #5ce1e6;
+    --text: #fff;
+    --font: inherit;
+    --bg: rgba(8, 8, 14, 0.72);
+    --lines: 3;
+  }
+  html, body { background: transparent; }
+
+  #root {
+    position: fixed;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: flex-end;
+    padding: 4vh 4vw;
+    font-size: min(var(--fs), 6.5vw, 14vh);
+    font-family: var(--font);
+  }
+  #root.upper .line, #root.upper .prev { text-transform: uppercase; }
+  #root.no-prev .prev { display: none; }
+  .theme-banner { padding-left: 0; padding-right: 0; }
+  .theme-banner .box { max-width: 100%; width: 100%; border-radius: 0; box-sizing: border-box; padding-left: 4vw; padding-right: 4vw; }
+  #root.top { justify-content: flex-start; }
+  #root.center { justify-content: center; }
+
+  .box {
+    max-width: min(100%, 34em);
+    padding: 0.38em 0.75em 0.45em;
+    border-radius: 0.42em;
+    background: var(--bg);
+    box-shadow: 0 0.25em 1em rgba(0, 0, 0, 0.35);
+    text-align: center;
+    transition: opacity 0.45s ease, transform 0.45s var(--vx-ease-out);
+  }
+  .box.hidden {
+    opacity: 0;
+    transform: translateY(0.4em) scale(0.98);
+  }
+  .theme-outline .box { background: none; box-shadow: none; }
+
+  .prev {
+    font-size: 0.62em;
+    line-height: 1.3;
+    font-weight: 600;
+    color: var(--text);
+    opacity: 0.55;
+    margin-bottom: 0.2em;
+    text-shadow: var(--vx-outline);
+    display: -webkit-box;
+    -webkit-line-clamp: 1;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+  .prev:empty { display: none; }
+
+  .line {
+    font-weight: 700;
+    line-height: 1.24;
+    letter-spacing: 0.002em;
+    color: var(--text);
+    text-shadow: var(--vx-outline-strong);
+    overflow-wrap: anywhere;
+    display: -webkit-box;
+    -webkit-line-clamp: var(--lines);
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    transition: color 0.25s ease;
+  }
+  .line.partial { opacity: 0.8; }
+  .line.partial::after {
+    content: "";
+    display: inline-block;
+    width: 0.09em;
+    height: 0.95em;
+    margin-left: 0.12em;
+    vertical-align: -0.12em;
+    background: var(--accent);
+    border-radius: 0.05em;
+    animation: caret 0.9s steps(1) infinite;
+  }
+  .line .w { animation: word 0.28s var(--vx-ease-out) both; display: inline-block; white-space: pre; }
+
+  .tr {
+    margin-top: 0.18em;
+    font-size: 0.72em;
+    line-height: 1.25;
+    font-weight: 650;
+    font-style: italic;
+    color: var(--accent);
+    text-shadow: var(--vx-outline-strong);
+    overflow-wrap: anywhere;
+    animation: trIn 0.45s var(--vx-ease-out) both;
+  }
+  .tr:empty { display: none; }
+
+  @keyframes caret { 50% { opacity: 0; } }
+  @keyframes word { from { opacity: 0; transform: translateY(0.2em); } to { opacity: 1; transform: none; } }
+  @keyframes trIn { from { opacity: 0; transform: translateY(-0.2em); } to { opacity: 1; transform: none; } }
+</style>
+</head>
+<body>
+<div id="root">
+  <div class="box hidden" id="box" aria-live="polite">
+    <div class="prev" id="prev"></div>
+    <div class="line" id="line"></div>
+    <div class="tr" id="tr"></div>
+  </div>
+</div>
+
+<script src="shared/widget.js"></script>
+<script>
+(function () {
+  "use strict";
+  var V = window.Vexcast;
+  var root = document.getElementById("root");
+  var box = document.getElementById("box");
+  var lineEl = document.getElementById("line");
+  var trEl = document.getElementById("tr");
+  var prevEl = document.getElementById("prev");
+
+  // Old overlay URLs (?color= ?hideAfter=) still win over the settings.
+  var pColor = V.param("color", "");
+  var pHide = V.param("hideAfter", "");
+  var hideAfter = 4000;
+  var s = V.settings("captions");
+  var currentId = null;
+  var currentText = "";
+  var lastFinal = "";
+  var hideTimer = null;
+
+  function applySettings() {
+    s = V.settings("captions");
+    var r = document.documentElement.style;
+    r.setProperty("--fs", Math.max(12, Number(s.fontSize) || 40) + "px");
+    var accent = pColor ? (pColor.charAt(0) === "#" ? pColor : "#" + pColor) : s.accentColor;
+    if (/^#[0-9a-f]{3,8}$/i.test(accent)) r.setProperty("--accent", accent);
+    r.setProperty("--text", /^#[0-9a-f]{3,8}$/i.test(s.textColor) ? s.textColor : "#fff");
+    r.setProperty("--bg", V.rgba(s.bgColor || "#08080e", s.bgOpacity === undefined ? 0.72 : s.bgOpacity));
+    r.setProperty("--font", V.fontStack(s.fontFamily) || "inherit");
+    r.setProperty("--lines", String(Math.max(1, Math.min(6, Number(s.maxLines) || 3))));
+    V.loadFont(s.fontFamily);
+    hideAfter = Math.max(1, parseFloat(pHide || s.hideAfterSec) || 4) * 1000;
+    var pos = s.position === "top" || s.position === "center" ? s.position : "bottom";
+    root.classList.toggle("top", pos === "top");
+    root.classList.toggle("center", pos === "center");
+    var theme = s.theme === "outline" || s.theme === "banner" ? s.theme : "box";
+    root.classList.toggle("theme-outline", theme === "outline");
+    root.classList.toggle("theme-banner", theme === "banner");
+    root.classList.toggle("upper", !!s.uppercase);
+    root.classList.toggle("no-prev", s.showPrevious === false);
+    if (!s.enabled) hide();
+  }
+
+  function hide() {
+    box.classList.add("hidden");
+    clearTimeout(hideTimer);
+    hideTimer = setTimeout(function () {
+      if (box.classList.contains("hidden")) { prevEl.textContent = ""; lastFinal = ""; }
+    }, 600);
+  }
+
+  function renderWords(text, prevText) {
+    // Animate only the words that were appended since the last update.
+    var keep = prevText && text.indexOf(prevText) === 0 ? prevText : "";
+    var rest = text.slice(keep.length);
+    var html = V.escapeHtml(keep);
+    if (rest) {
+      html += rest.split(/(\s+)/).map(function (w) {
+        return w && !/^\s+$/.test(w) ? '<span class="w">' + V.escapeHtml(w) + "</span>" : V.escapeHtml(w);
+      }).join("");
+    }
+    lineEl.innerHTML = html;
+  }
+
+  function onCaption(c) {
+    if (!c || (!s.enabled && !V.isDemo)) return;
+    var text = String(c.text || "").trim();
+    if (!text) return;
+
+    if (c.id !== currentId) {
+      // A new utterance: the previous one (if final) moves to the small line above.
+      if (currentId && lastFinal) prevEl.textContent = lastFinal;
+      currentId = c.id;
+      currentText = "";
+      trEl.textContent = "";
+    }
+    renderWords(text, currentText);
+    currentText = text;
+    lineEl.classList.toggle("partial", !c.final);
+    if (c.translated) {
+      if (trEl.textContent !== c.translated) {
+        trEl.textContent = c.translated;
+        trEl.style.animation = "none";
+        void trEl.offsetWidth;
+        trEl.style.animation = "";
+      }
+    }
+    if (c.final) lastFinal = text;
+
+    box.classList.remove("hidden");
+    clearTimeout(hideTimer);
+    hideTimer = setTimeout(hide, c.final ? hideAfter : hideAfter + 4000);
+  }
+  V.on("caption", onCaption);
+
+  V.on("state", applySettings);
+  applySettings();
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,13 @@
+node_modules/
+target/
+dist/
+.expo/
+*.log
+.DS_Store
+apps/mobile/android/
+apps/mobile/ios/
+apps/desktop/src-tauri/gen/
+*.key
+.env
+apps/desktop/src-tauri/obs-runtime/
+target-e2e/

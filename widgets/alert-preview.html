@@ -1,0 +1,72 @@
+<!doctype html>
+<!-- Vexcast alert designer preview. SPDX-License-Identifier: GPL-3.0-or-later -->
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<!-- Same color scheme as the (dark or light) designer so the iframe stays transparent. -->
+<meta name="color-scheme" content="light dark">
+<title>Vexcast · Vista previa de alerta</title>
+<style>
+  html, body { margin: 0; height: 100%; overflow: hidden; background: transparent; color-scheme: light dark; }
+  #fit { position: absolute; left: 0; top: 0; transform-origin: 0 0; }
+</style>
+</head>
+<body>
+<div id="fit"></div>
+<script src="shared/widget.js"></script>
+<script src="shared/alert-render.js"></script>
+<script>
+/*
+ * Messages from the designer (window.postMessage):
+ *   { type: "vx-alert-preview", design, event, mode: "static" | "play" }
+ * The canvas is scaled to the iframe (the designer sizes the iframe to the canvas
+ * aspect ratio and draws its handles over it).
+ */
+(function () {
+  "use strict";
+  var V = window.Vexcast;
+  var R = window.VexcastAlertRender;
+  var fit = document.getElementById("fit");
+  var current = null;
+  var playTimer = null;
+
+  function mediaUrl(p) {
+    if (!p) return "";
+    if (/^(https?|data|blob):/i.test(p)) return p;
+    return V.url("/api/v1/files?path=" + encodeURIComponent(p));
+  }
+
+  function layout() {
+    if (!current) return;
+    var s = Math.min(window.innerWidth / current.width, window.innerHeight / current.height);
+    fit.style.transform = "scale(" + s + ")";
+  }
+
+  function show(design, ev, mode) {
+    clearTimeout(playTimer);
+    fit.innerHTML = "";
+    current = R.render(design, ev, { mode: mode, audio: mode === "play", mediaUrl: mediaUrl });
+    fit.appendChild(current.el);
+    layout();
+    if (mode === "play") {
+      var a = current;
+      playTimer = setTimeout(function () {
+        a.stop(function () {
+          parent.postMessage({ type: "vx-alert-preview-done" }, "*");
+        });
+      }, Math.max(1000, design.durationMs || 8000));
+    }
+  }
+
+  window.addEventListener("message", function (e) {
+    var m = e.data;
+    if (!m || m.type !== "vx-alert-preview") return;
+    show(m.design || {}, m.event || {}, m.mode === "play" ? "play" : "static");
+  });
+  window.addEventListener("resize", layout);
+  parent.postMessage({ type: "vx-alert-preview-ready" }, "*");
+})();
+</script>
+</body>
+</html>

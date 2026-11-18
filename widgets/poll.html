@@ -1,0 +1,165 @@
+<!doctype html>
+<!-- Vexcast chat poll (votes from every platform). SPDX-License-Identifier: GPL-3.0-or-later -->
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<title>Vexcast · Encuesta</title>
+<link rel="stylesheet" href="shared/widget.css">
+<style>
+  html, body { background: transparent; }
+  :root { --fs: 26px; --font: inherit; --text: #fff; --c1: #7c5cff; --c2: #22d3ee; --bg: rgba(20, 18, 31, 0.85); }
+  #stage { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; padding: 3%; font-size: var(--fs); font-family: var(--font); color: var(--text); }
+  .card { width: min(100%, 22em); padding: 0.8em 0.95em 0.85em; border-radius: 0.7em; background: var(--bg); box-shadow: 0 0.4em 1.6em rgba(0, 0, 0, 0.35); transition: opacity 0.4s ease, transform 0.4s var(--vx-ease-out); }
+  .card.hidden { opacity: 0; transform: translateY(0.5em) scale(0.98); }
+  .theme-solid .card { box-shadow: none; }
+  .theme-neon .card { border: 2px solid var(--c1); box-shadow: 0 0 1em var(--c1), inset 0 0 0.8em rgba(0, 0, 0, 0.5); }
+  .theme-minimal .card { background: none; box-shadow: none; padding: 0; }
+  .theme-minimal .q, .theme-minimal .opt { text-shadow: var(--vx-outline-strong); }
+  .head { display: flex; align-items: baseline; gap: 0.5em; margin-bottom: 0.55em; }
+  .q { flex: 1; font-weight: 800; line-height: 1.2; overflow-wrap: anywhere; }
+  .time { font-size: 0.62em; font-weight: 700; opacity: 0.75; font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .opts { display: flex; flex-direction: column; gap: 0.38em; }
+  .opt { position: relative; display: flex; align-items: center; gap: 0.5em; padding: 0.32em 0.55em; border-radius: 0.45em; overflow: hidden; font-size: 0.78em; font-weight: 700; background: rgba(255, 255, 255, 0.08); }
+  .theme-minimal .opt { background: rgba(0, 0, 0, 0.35); }
+  .bar { position: absolute; inset: 0 auto 0 0; width: 0; background: linear-gradient(90deg, var(--c1), var(--c2)); opacity: 0.55; transition: width 0.7s var(--vx-ease-out); }
+  .opt > :not(.bar) { position: relative; }
+  .n { flex: none; width: 1.45em; height: 1.45em; display: grid; place-items: center; border-radius: 0.35em; background: rgba(0, 0, 0, 0.35); font-size: 0.85em; }
+  .label { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .val { flex: none; font-variant-numeric: tabular-nums; opacity: 0.9; }
+  .win { box-shadow: inset 0 0 0 2px var(--c2); }
+  .win .bar { opacity: 0.85; }
+  .win .label::after { content: " 🏆"; }
+  .foot { margin-top: 0.5em; font-size: 0.58em; opacity: 0.75; display: flex; justify-content: space-between; gap: 1em; }
+  .no-votes .cnt, .no-pct .pct, .no-hint .hint { display: none; }
+</style>
+</head>
+<body>
+<div id="stage"></div>
+<script src="shared/widget.js"></script>
+<script>
+(function () {
+  "use strict";
+  var V = window.Vexcast;
+  var stage = document.getElementById("stage");
+  var poll = null;
+  var hideTimer = 0;
+  var clock = 0;
+  var lastLook = "";
+
+  function look() {
+    var s = V.settings("poll");
+    var key = JSON.stringify(s);
+    if (key === lastLook) return s;
+    lastLook = key;
+    var r = document.documentElement.style;
+    r.setProperty("--fs", Math.max(12, Number(s.fontSize) || 26) + "px");
+    r.setProperty("--text", /^#[0-9a-f]{3,8}$/i.test(s.textColor) ? s.textColor : "#fff");
+    if (/^#[0-9a-f]{3,8}$/i.test(s.color)) r.setProperty("--c1", s.color);
+    if (/^#[0-9a-f]{3,8}$/i.test(s.color2)) r.setProperty("--c2", s.color2);
+    r.setProperty("--bg", V.rgba(s.bgColor || "#14121f", s.bgOpacity === undefined ? 0.85 : s.bgOpacity));
+    r.setProperty("--font", V.fontStack(s.fontFamily) || "inherit");
+    V.loadFont(s.fontFamily);
+    var b = document.body.classList;
+    ["glass", "solid", "neon", "minimal"].forEach(function (t) { b.toggle("theme-" + t, (s.theme || "glass") === t); });
+    b.toggle("no-votes", s.showVotes === false);
+    b.toggle("no-pct", s.showPercent === false);
+    b.toggle("no-hint", s.showHint === false);
+    return s;
+  }
+
+  function left() {
+    if (!poll || !poll.open || !poll.endsAt) return "";
+    var sec = Math.max(0, Math.ceil((poll.endsAt - Date.now()) / 1000));
+    return Math.floor(sec / 60) + ":" + ("0" + (sec % 60)).slice(-2);
+  }
+
+  function render() {
+    var s = look();
+    clearTimeout(hideTimer);
+    if (!poll) {
+      var c = stage.querySelector(".card");
+      if (c) { c.classList.add("hidden"); setTimeout(function () { if (!poll) stage.innerHTML = ""; }, 450); }
+      return;
+    }
+    var pred = !!poll.prediction;
+    var vals = pred && poll.bets ? poll.bets : poll.votes;
+    var total = vals.reduce(function (a, b) { return a + b; }, 0);
+    var people = poll.votes.reduce(function (a, b) { return a + b; }, 0);
+    var state = poll.open ? left() : pred && poll.refunded ? V.t("predRefunded") : pred && poll.result == null ? V.t("predClosed") : V.t("pollClosed");
+    var html = '<div class="card"><div class="head"><div class="q">' + (pred ? "🔮 " : "") + V.escapeHtml(poll.question) + '</div><div class="time">' + V.escapeHtml(state) + '</div></div><div class="opts">';
+    poll.options.forEach(function (o, i) {
+      var pct = total ? Math.round((vals[i] * 100) / total) : 0;
+      var win = !poll.open && poll.winners.indexOf(i) >= 0;
+      html += '<div class="opt' + (win ? " win" : "") + '"><div class="bar" style="width:' + pct + '%"></div><span class="n">' + (i + 1) + '</span><span class="label">' + V.escapeHtml(o) +
+        '</span><span class="val"><span class="pct">' + pct + '%</span> <span class="cnt">(' + (pred ? V.formatNumber(vals[i]) : vals[i]) + ")</span></span></div>";
+    });
+    var unit = (V.state && V.state.bot && V.state.bot.loyalty && V.state.bot.loyalty.name) || "puntos";
+    html += '</div><div class="foot"><span class="hint">' + (poll.open ? V.escapeHtml(V.t(pred ? "predHint" : "pollHint")) : "") + '</span><span class="cnt">' +
+      V.escapeHtml(pred ? V.t("predPool", { n: V.formatNumber(total), unit: unit, people: people }) : V.t("pollVotes", { n: total })) + "</span></div></div>";
+    // Keep the bars animating: update in place when the card exists.
+    var cur = stage.querySelector(".card");
+    if (cur && cur.querySelectorAll(".opt").length === poll.options.length && cur.getAttribute("data-id") === poll.id) {
+      var tmp = document.createElement("div");
+      tmp.innerHTML = html;
+      var next = tmp.firstChild;
+      cur.querySelector(".q").textContent = poll.question;
+      cur.querySelector(".time").textContent = next.querySelector(".time").textContent;
+      var olds = cur.querySelectorAll(".opt"), news = next.querySelectorAll(".opt");
+      for (var k = 0; k < olds.length; k++) {
+        olds[k].className = news[k].className;
+        olds[k].querySelector(".bar").style.width = news[k].querySelector(".bar").style.width;
+        olds[k].querySelector(".val").innerHTML = news[k].querySelector(".val").innerHTML;
+      }
+      cur.querySelector(".foot").innerHTML = next.querySelector(".foot").innerHTML;
+    } else {
+      stage.innerHTML = html;
+      var card = stage.querySelector(".card");
+      card.setAttribute("data-id", poll.id);
+      card.classList.add("hidden");
+      void card.offsetWidth;
+      card.classList.remove("hidden");
+    }
+    var hideAfter = Number(s.hideAfterSec);
+    var settled = !pred || poll.result != null || poll.refunded;
+    if (!poll.open && settled && hideAfter > 0) {
+      var id = poll.id;
+      hideTimer = setTimeout(function () { if (poll && poll.id === id) { poll = null; render(); } }, hideAfter * 1000);
+    }
+  }
+
+  function set(p) {
+    poll = p || null;
+    render();
+  }
+
+  V.on("poll", set);
+  V.on("state", function () { if (poll) render(); else look(); });
+  clock = setInterval(function () {
+    var el = stage.querySelector(".time");
+    if (el && poll && poll.open && poll.endsAt) el.textContent = left();
+  }, 500);
+
+  if (V.isDemo) {
+    var demo = { id: "demo", question: "¿Qué jugamos después?", options: ["Minecraft", "Elden Ring", "Valorant"], votes: [0, 0, 0], open: true, winners: [], startedAt: Date.now(), endsAt: Date.now() + 20000 };
+    set(demo);
+    setInterval(function () {
+      if (!demo.open) {
+        demo = { id: "demo" + Date.now(), question: demo.question, options: demo.options, votes: [0, 0, 0], open: true, winners: [], startedAt: Date.now(), endsAt: Date.now() + 20000 };
+      } else if (Date.now() > demo.endsAt) {
+        demo.open = false;
+        var max = Math.max.apply(null, demo.votes);
+        demo.winners = demo.votes.map(function (v, i) { return v === max ? i : -1; }).filter(function (i) { return i >= 0; });
+      } else {
+        demo.votes[Math.random() < 0.5 ? 0 : Math.random() < 0.6 ? 1 : 2] += 1 + Math.floor(Math.random() * 3);
+      }
+      set(JSON.parse(JSON.stringify(demo)));
+    }, 900);
+  } else {
+    fetch(V.url("/api/v1/poll")).then(function (r) { return r.ok ? r.json() : null; }).then(set).catch(function () {});
+  }
+})();
+</script>
+</body>
+</html>

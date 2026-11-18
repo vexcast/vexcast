@@ -1,0 +1,79 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  core-windows:
+    name: Core + libobs engine (Windows)
+    runs-on: windows-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: OBS runtime
+        run: node scripts/fetch-obs-runtime.mjs target/debug target/debug/deps
+      - name: Test core
+        run: cargo test -p vexcast-core
+      - name: Build server and desktop shell
+        run: cargo build -p vexcast-server
+
+  core-linux-obs:
+    name: Core + libobs engine (Linux, experimental)
+    runs-on: ubuntu-24.04
+    continue-on-error: true
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - name: OBS Studio from the official PPA (libobs + headers)
+        run: |
+          sudo add-apt-repository -y ppa:obsproject/obs-studio
+          sudo apt-get update
+          sudo apt-get install -y obs-studio libclang-dev pkg-config
+          pkg-config --modversion libobs
+      - name: Build core with the engine
+        run: cargo build -p vexcast-core -p vexcast-server
+
+  core-portable:
+    name: Core without engine (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-22.04, macos-latest]
+    runs-on: ${{ matrix.os }}
+    continue-on-error: ${{ startsWith(matrix.os, 'macos') }}
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - name: Test core (no libobs)
+        run: cargo test -p vexcast-core --no-default-features
+
+  frontend:
+    name: Desktop UI & mobile app
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Typecheck & build desktop UI
+        run: pnpm --filter @vexcast/desktop build
+      - name: Typecheck mobile app
+        run: pnpm --filter @vexcast/mobile typecheck

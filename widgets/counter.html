@@ -1,0 +1,102 @@
+<!doctype html>
+<!-- Vexcast counter / countdown text (uses the labels look). SPDX-License-Identifier: GPL-3.0-or-later -->
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<title>Vexcast · Contador</title>
+<link rel="stylesheet" href="shared/widget.css">
+<style>
+  html, body { background: transparent; }
+  :root { --fs: 32px; --font: inherit; --text: #fff; --user: inherit; --weight: 800; --stroke: 0px; --stroke-c: #000; }
+  #box { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; padding: 0 0.3em; font-size: var(--fs); font-family: var(--font); font-weight: var(--weight); color: var(--text); overflow: hidden; }
+  #box.left { justify-content: flex-start; }
+  #box.right { justify-content: flex-end; }
+  #text { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; -webkit-text-stroke: var(--stroke) var(--stroke-c); paint-order: stroke fill; font-variant-numeric: tabular-nums; }
+  #box.upper #text { text-transform: uppercase; }
+  #box.shadow #text { text-shadow: var(--vx-outline-strong); }
+  #text .v { color: var(--user); }
+  #text.bump { animation: bump 0.45s var(--vx-ease-spring); }
+  @keyframes bump { 0% { transform: scale(1); } 40% { transform: scale(1.18); } 100% { transform: scale(1); } }
+</style>
+</head>
+<body>
+<div id="box"><span id="text"></span></div>
+<script src="shared/widget.js"></script>
+<script>
+(function () {
+  "use strict";
+  var V = window.Vexcast;
+  var box = document.getElementById("box");
+  var textEl = document.getElementById("text");
+  // ?id=<counter id or name>  ·  ?countdown=1 for the countdown / subathon timer
+  var id = V.param("id", "");
+  var isTimer = /^(1|true|yes)$/i.test(V.param("countdown", ""));
+  var last = null;
+  var lastLook = "";
+
+  function clock(ms) {
+    var s = Math.max(0, Math.ceil(ms / 1000));
+    var h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60), x = s % 60;
+    var mm = (h ? ("0" + m).slice(-2) : String(m)) + ":" + ("0" + x).slice(-2);
+    return h ? h + ":" + mm : mm;
+  }
+
+  function demoState() {
+    return isTimer ? { label: "Empezamos en", endText: "¡Ya estamos!", endsAt: Date.now() + 754000 } : { name: "Muertes", value: 7, template: "{name}: {value}" };
+  }
+
+  function text() {
+    var st = V.state || {};
+    if (isTimer) {
+      var c = V.isDemo ? demoState() : st.countdown || {};
+      var left = c.pausedLeftMs != null ? c.pausedLeftMs : c.endsAt ? c.endsAt - Date.now() : null;
+      if (left === null) return null;
+      if (left <= 0) return V.escapeHtml(c.endText || "");
+      return (c.label ? V.escapeHtml(c.label) + " " : "") + '<span class="v">' + clock(left) + "</span>";
+    }
+    var list = st.counters || [];
+    var k = id.toLowerCase();
+    var ct = V.isDemo ? demoState() : list.filter(function (x) { return x.id === id || (x.name || "").toLowerCase() === k; })[0] || list[0];
+    if (!ct) return null;
+    return V.escapeHtml(ct.template || "{name}: {value}").replace(/\{(name|value)\}/g, function (m, key) {
+      return key === "value" ? '<span class="v">' + V.escapeHtml(String(ct.value)) + "</span>" : V.escapeHtml(ct.name || "");
+    });
+  }
+
+  function render() {
+    var s = V.settings("labels");
+    var look = JSON.stringify([s.fontFamily, s.fontSize, s.fontWeight, s.textColor, s.userColor, s.strokeColor, s.strokeWidth, s.shadow, s.align, s.uppercase]);
+    if (look !== lastLook) {
+      lastLook = look;
+      var r = document.documentElement.style;
+      r.setProperty("--fs", Math.max(8, Number(s.fontSize) || 32) + "px");
+      r.setProperty("--weight", String(s.fontWeight || 800));
+      r.setProperty("--text", /^#[0-9a-f]{3,8}$/i.test(s.textColor) ? s.textColor : "#fff");
+      r.setProperty("--user", /^#[0-9a-f]{3,8}$/i.test(s.userColor) ? s.userColor : "inherit");
+      r.setProperty("--stroke", Math.max(0, Number(s.strokeWidth) || 0) + "px");
+      r.setProperty("--stroke-c", /^#[0-9a-f]{3,8}$/i.test(s.strokeColor) ? s.strokeColor : "#000");
+      r.setProperty("--font", V.fontStack(s.fontFamily) || "inherit");
+      V.loadFont(s.fontFamily);
+      box.className = (s.align === "left" || s.align === "right" ? s.align : "") + (s.uppercase ? " upper" : "") + (s.shadow !== false ? " shadow" : "");
+    }
+    var html = text();
+    if (html === null) html = "";
+    if (html === last) return;
+    var bump = last !== null && !isTimer && s.animation !== "none";
+    last = html;
+    textEl.innerHTML = html;
+    if (bump) {
+      textEl.classList.remove("bump");
+      void textEl.offsetWidth;
+      textEl.classList.add("bump");
+    }
+  }
+  V.on("state", render);
+  if (isTimer) setInterval(render, 250);
+  render();
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,18 @@
+{
+  "name": "@vexcast/mock-core",
+  "version": "0.1.0",
+  "private": true,
+  "license": "GPL-3.0-or-later",
+  "description": "In-memory mock of the Vexcast core API v2 (REST + WebSocket + live preview) for UI development without libobs.",
+  "type": "module",
+  "bin": {
+    "vexcast-mock-core": "./src/server.js"
+  },
+  "scripts": {
+    "start": "node src/server.js",
+    "typecheck": "node --check src/server.js && node --check src/state.js && node --check src/catalog.js && node --check src/props.js && node --check src/render.js"
+  },
+  "dependencies": {
+    "ws": "^8.18.0"
+  }
+}

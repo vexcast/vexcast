@@ -1,0 +1,260 @@
+<!doctype html>
+<!-- Vexcast widget gallery. SPDX-License-Identifier: GPL-3.0-or-later -->
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<title>Widgets de Vexcast</title>
+<style>
+  :root {
+    --bg: #0d0d14;
+    --panel: #15151f;
+    --line: rgba(255, 255, 255, 0.08);
+    --text: #ececf3;
+    --muted: #9a9ab0;
+    --accent: #7c5cff;
+    --accent-2: #22d3ee;
+    --font: "Inter", "Segoe UI Variable", "Segoe UI", system-ui, -apple-system, BlinkMacSystemFont, Roboto, "Helvetica Neue", Arial, sans-serif;
+    --mono: ui-monospace, "SF Mono", "Cascadia Code", "JetBrains Mono", Consolas, "Liberation Mono", monospace;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; background: var(--bg); color: var(--text); font-family: var(--font); -webkit-font-smoothing: antialiased; }
+  body { padding: 40px 16px 64px; }
+  main { max-width: 1240px; margin: 0 auto; }
+
+  header { display: flex; align-items: center; gap: 16px; margin-bottom: 8px; }
+  .logo {
+    width: 44px; height: 44px; border-radius: 12px; flex: none;
+    background: linear-gradient(135deg, var(--accent), var(--accent-2));
+    display: grid; place-items: center; box-shadow: 0 6px 24px rgba(124, 92, 255, 0.35);
+  }
+  .logo svg { width: 24px; height: 24px; }
+  h1 { margin: 0; font-size: 28px; letter-spacing: -0.02em; }
+  .lead { margin: 4px 0 32px; color: var(--muted); max-width: 760px; line-height: 1.55; }
+  .lead code, td code, .url code { font-family: var(--mono); font-size: 0.88em; color: #c9c3ff; background: rgba(124, 92, 255, 0.12); padding: 1px 6px; border-radius: 6px; }
+
+  .grid { display: grid; grid-template-columns: repeat(12, 1fr); gap: 20px; }
+  .card { grid-column: span 6; background: var(--panel); border: 1px solid var(--line); border-radius: 18px; overflow: hidden; display: flex; flex-direction: column; }
+  .card.wide { grid-column: span 12; }
+  .card.third { grid-column: span 4; }
+  .card.two-thirds { grid-column: span 8; }
+  @media (max-width: 900px) { .card, .card.third, .card.two-thirds { grid-column: span 12; } }
+
+  .preview {
+    position: relative;
+    background: repeating-conic-gradient(#20222a 0 25%, #2a2d36 0 50%) 0 0 / 24px 24px;
+    border-bottom: 1px solid var(--line);
+  }
+  .preview.photo { background: radial-gradient(120% 90% at 20% 10%, #3b2f6b 0%, #1a1d33 45%, #0f1220 100%); }
+  .preview { flex: 1 0 auto; display: flex; flex-direction: column; }
+  .preview iframe { display: block; width: 100%; flex: 1 0 auto; border: 0; background: transparent; }
+  .r16x9 iframe { aspect-ratio: 16 / 9; }
+  .tall iframe { height: 520px; }
+  .short iframe { min-height: 170px; }
+  .strip iframe { height: 96px; }
+
+  .info { padding: 16px 18px 18px; display: flex; flex-direction: column; gap: 8px; }
+  .info h2 { margin: 0; font-size: 17px; display: flex; align-items: center; gap: 10px; }
+  .info p { margin: 0; color: var(--muted); font-size: 14px; line-height: 1.5; }
+  .url { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; font-size: 13px; }
+  .url a { color: var(--accent-2); text-decoration: none; font-weight: 600; }
+  .url a:hover { text-decoration: underline; }
+  .tag { font-size: 11px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: #b9b0ff; background: rgba(124, 92, 255, 0.14); padding: 3px 8px; border-radius: 999px; }
+
+  section.ref { margin-top: 40px; }
+  section.ref h2 { font-size: 20px; margin: 0 0 12px; }
+  table { width: 100%; border-collapse: collapse; font-size: 14px; background: var(--panel); border: 1px solid var(--line); border-radius: 14px; overflow: hidden; }
+  th, td { text-align: left; padding: 10px 14px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  th { color: var(--muted); font-weight: 600; font-size: 12px; text-transform: uppercase; letter-spacing: 0.06em; }
+  tr:last-child td { border-bottom: 0; }
+  .scroll { overflow-x: auto; }
+  footer { margin-top: 32px; color: var(--muted); font-size: 13px; }
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <div class="logo"><svg viewBox="0 0 24 24"><path d="M5.5 6l6.5 12.5L18.5 6" fill="none" stroke="#fff" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+    <h1>Widgets de Vexcast</h1>
+  </header>
+  <p class="lead">
+    Overlays para tus directos. Añádelos como <strong>fuente de navegador</strong> en Vexcast u OBS con la URL
+    <code>http://localhost:7420/widgets/&lt;widget&gt;.html?token=TU_TOKEN</code>. Tienen fondo transparente y se
+    actualizan en tiempo real. Las vistas previas de esta página usan <code>?demo=1</code> (eventos de prueba, sin core).
+  </p>
+
+  <div class="grid">
+    <article class="card wide">
+      <div class="preview photo r16x9"><iframe title="Alertas" src="alerts.html?demo=1" loading="lazy"></iframe></div>
+      <div class="info">
+        <h2>Alertas <span class="tag">alerts.html</span></h2>
+        <p>Donaciones, seguidores, suscripciones, raids, bits, superchats y Ko-fi en cola, con animación, confeti, sonido y lectura TTS.</p>
+        <div class="url"><a data-widget="alerts.html" href="alerts.html?demo=1" target="_blank" rel="noopener">Abrir</a>
+          <code>?animation=pop|slide|fade|bounce</code><code>?accentColor=%23ff3d7f</code><code>?audio=1</code></div>
+      </div>
+    </article>
+
+    <article class="card third">
+      <div class="preview tall"><iframe title="Chat" src="chat.html?demo=1&amp;theme=glass" loading="lazy"></iframe></div>
+      <div class="info">
+        <h2>Chat · glass <span class="tag">chat.html</span></h2>
+        <p>Chat unificado de Twitch, YouTube, Kick y TikTok con iconos, insignias y colores.</p>
+        <div class="url"><a data-widget="chat.html" href="chat.html?demo=1&amp;theme=glass" target="_blank" rel="noopener">Abrir</a><code>?theme=glass</code></div>
+      </div>
+    </article>
+    <article class="card third">
+      <div class="preview tall"><iframe title="Chat sólido" src="chat.html?demo=1&amp;theme=solid" loading="lazy"></iframe></div>
+      <div class="info">
+        <h2>Chat · solid</h2>
+        <p>Tarjetas opacas con barra de color del usuario. Máxima legibilidad.</p>
+        <div class="url"><a data-widget="chat.html" href="chat.html?demo=1&amp;theme=solid" target="_blank" rel="noopener">Abrir</a><code>?theme=solid</code></div>
+      </div>
+    </article>
+    <article class="card third">
+      <div class="preview tall"><iframe title="Chat minimal" src="chat.html?demo=1&amp;theme=minimal" loading="lazy"></iframe></div>
+      <div class="info">
+        <h2>Chat · minimal</h2>
+        <p>Texto en línea con contorno, sin fondo. Ideal sobre la escena de juego.</p>
+        <div class="url"><a data-widget="chat.html" href="chat.html?demo=1&amp;theme=minimal" target="_blank" rel="noopener">Abrir</a><code>?theme=minimal</code></div>
+      </div>
+    </article>
+
+    <article class="card two-thirds">
+      <div class="preview short"><iframe title="Meta" src="goal.html?demo=1" loading="lazy"></iframe></div>
+      <div class="info">
+        <h2>Meta de donaciones <span class="tag">goal.html</span></h2>
+        <p>Barra de progreso animada con brillo; celebra con una explosión de confeti al alcanzar el objetivo.</p>
+        <div class="url"><a data-widget="goal.html" href="goal.html?demo=1" target="_blank" rel="noopener">Abrir</a><code>?position=top|center|bottom</code><code>?color=%2300c2ff</code></div>
+      </div>
+    </article>
+    <article class="card third">
+      <div class="preview tall"><iframe title="Eventos" src="events.html?demo=1" loading="lazy"></iframe></div>
+      <div class="info">
+        <h2>Eventos recientes <span class="tag">events.html</span></h2>
+        <p>Los últimos 10 eventos en una lista compacta.</p>
+        <div class="url"><a data-widget="events.html" href="events.html?demo=1" target="_blank" rel="noopener">Abrir</a><code>?max=10</code></div>
+      </div>
+    </article>
+
+    <article class="card wide">
+      <div class="preview strip"><iframe title="Ticker de eventos" src="events.html?demo=1&amp;layout=ticker" loading="lazy"></iframe></div>
+      <div class="info">
+        <h2>Ticker de eventos <span class="tag">events.html?layout=ticker</span></h2>
+        <p>Los mismos eventos en una banda horizontal en movimiento.</p>
+        <div class="url"><a data-widget="events.html" href="events.html?demo=1&amp;layout=ticker" target="_blank" rel="noopener">Abrir</a><code>?layout=ticker</code><code>?speed=90</code></div>
+      </div>
+    </article>
+
+    <article class="card wide">
+      <div class="preview photo r16x9"><iframe title="Subtítulos" src="captions.html?demo=1" loading="lazy"></iframe></div>
+      <div class="info">
+        <h2>Subtítulos en directo <span class="tag">captions.html</span></h2>
+        <p>Transcripción local (Whisper) con traducción opcional. El texto provisional se muestra más tenue y se oculta tras unos segundos de silencio.</p>
+        <div class="url"><a data-widget="captions.html" href="captions.html?demo=1" target="_blank" rel="noopener">Abrir</a><code>?position=bottom|top|center</code><code>?hideAfter=4</code><code>?theme=outline</code></div>
+      </div>
+    </article>
+
+    <article class="card third">
+      <div class="preview short"><iframe title="Mensaje destacado" src="highlight.html?demo=1" loading="lazy"></iframe></div>
+      <div class="info">
+        <h2>Mensaje destacado <span class="tag">highlight.html</span></h2>
+        <p>Un mensaje del chat en grande: pulsa la estrella junto al mensaje en Vexcast.</p>
+        <div class="url"><a data-widget="highlight.html" href="highlight.html?demo=1" target="_blank" rel="noopener">Abrir</a></div>
+      </div>
+    </article>
+
+    <article class="card third">
+      <div class="preview short"><iframe title="Etiquetas" src="labels.html?demo=1&amp;label=latest_follower" loading="lazy"></iframe></div>
+      <div class="info">
+        <h2>Etiquetas <span class="tag">labels.html</span></h2>
+        <p>Último seguidor, mayor donación, totales del directo… una fuente por etiqueta.</p>
+        <div class="url"><a data-widget="labels.html" href="labels.html?demo=1&amp;label=latest_follower" target="_blank" rel="noopener">Abrir</a><code>?label=latest_follower</code><code>?label=top_donation</code></div>
+      </div>
+    </article>
+
+    <article class="card third">
+      <div class="preview short"><iframe title="Contador / cuenta atrás" src="counter.html?demo=1" loading="lazy"></iframe></div>
+      <div class="info">
+        <h2>Contador / cuenta atrás <span class="tag">counter.html</span></h2>
+        <p>Muertes, victorias o la cuenta atrás de un subathon.</p>
+        <div class="url"><a data-widget="counter.html" href="counter.html?demo=1" target="_blank" rel="noopener">Abrir</a><code>?id=muertes</code><code>?countdown=1</code></div>
+      </div>
+    </article>
+
+    <article class="card third">
+      <div class="preview tall"><iframe title="Encuesta y predicción" src="poll.html?demo=1" loading="lazy"></iframe></div>
+      <div class="info">
+        <h2>Encuesta y predicción <span class="tag">poll.html</span></h2>
+        <p>Votos o apuestas de Twitch, YouTube y Kick a la vez.</p>
+        <div class="url"><a data-widget="poll.html" href="poll.html?demo=1" target="_blank" rel="noopener">Abrir</a></div>
+      </div>
+    </article>
+
+    <article class="card third">
+      <div class="preview tall"><iframe title="Sorteo" src="giveaway.html?demo=1" loading="lazy"></iframe></div>
+      <div class="info">
+        <h2>Sorteo <span class="tag">giveaway.html</span></h2>
+        <p>Participantes en directo y ruleta con el ganador.</p>
+        <div class="url"><a data-widget="giveaway.html" href="giveaway.html?demo=1" target="_blank" rel="noopener">Abrir</a></div>
+      </div>
+    </article>
+
+    <article class="card third">
+      <div class="preview short"><iframe title="Canciones" src="songs.html?demo=1" loading="lazy"></iframe></div>
+      <div class="info">
+        <h2>Canciones <span class="tag">songs.html</span></h2>
+        <p>Reproduce la cola de !sr; añádelo con ?player=1 en una sola escena.</p>
+        <div class="url"><a data-widget="songs.html" href="songs.html?demo=1" target="_blank" rel="noopener">Abrir</a><code>?player=1</code></div>
+      </div>
+    </article>
+    <article class="card wide">
+      <div class="preview photo r16x9"><iframe title="Créditos" src="credits.html?demo=1" loading="lazy"></iframe></div>
+      <div class="info">
+        <h2>Créditos del directo <span class="tag">credits.html</span></h2>
+        <p>Seguidores, subs, donaciones y quienes más hablaron, pasando como en el cine. Para la escena de despedida.</p>
+        <div class="url"><a data-widget="credits.html" href="credits.html?demo=1" target="_blank" rel="noopener">Abrir</a></div>
+      </div>
+    </article>
+    <article class="card third">
+      <div class="preview short"><iframe title="Meta de seguidores" src="goal.html?demo=1&amp;type=followers" loading="lazy"></iframe></div>
+      <div class="info">
+        <h2>Metas de seguidores, subs y bits <span class="tag">goal.html?type=</span></h2>
+        <p>Igual que la meta de donaciones, con su propio objetivo y aspecto.</p>
+        <div class="url"><a data-widget="goal.html" href="goal.html?demo=1&amp;type=followers" target="_blank" rel="noopener">Abrir</a><code>?type=followers</code><code>?type=subs</code><code>?type=bits</code></div>
+      </div>
+    </article>
+  </div>
+
+  <section class="ref">
+    <h2>Parámetros comunes</h2>
+    <div class="scroll">
+    <table>
+      <thead><tr><th>Parámetro</th><th>Descripción</th></tr></thead>
+      <tbody>
+        <tr><td><code>token</code></td><td>Token de la API (Ajustes → Control remoto). Necesario salvo desde 127.0.0.1.</td></tr>
+        <tr><td><code>core</code></td><td>URL base del core si el widget se sirve desde otro sitio, p. ej. <code>http://192.168.1.20:7420</code>.</td></tr>
+        <tr><td><code>demo=1</code></td><td>Genera eventos de prueba localmente; no necesita conexión.</td></tr>
+        <tr><td><code>audio=1</code></td><td>Reproduce sonidos y TTS en el propio widget (para OBS). Sin él, el widget es silencioso: Vexcast mezcla el audio directamente en el directo.</td></tr>
+        <tr><td><code>lang=es|en</code></td><td>Idioma de los textos por defecto (por defecto, el de Vexcast).</td></tr>
+        <tr><td><code>&lt;ajuste&gt;=valor</code></td><td>Cualquier ajuste simple del widget, p. ej. <code>theme=solid</code>, <code>fontSize=28</code>, <code>durationMs=9000</code>.</td></tr>
+      </tbody>
+    </table>
+    </div>
+  </section>
+
+  <footer>Vexcast · software libre (GPL-3.0-or-later) · funciona sin conexión a Internet.</footer>
+</main>
+<script>
+  // "Abrir" links keep the token this page was opened with.
+  (function () {
+    var token = new URLSearchParams(location.search).get("token");
+    if (!token) return;
+    var links = document.querySelectorAll("a[data-widget]");
+    for (var i = 0; i < links.length; i++) {
+      links[i].href = links[i].getAttribute("data-widget") + "?token=" + encodeURIComponent(token);
+    }
+  })();
+</script>
+</body>
+</html>

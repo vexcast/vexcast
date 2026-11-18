@@ -1,0 +1,137 @@
+<!doctype html>
+<!-- Vexcast text labels (latest follower, top donation, session totals…). SPDX-License-Identifier: GPL-3.0-or-later -->
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<title>Vexcast · Etiqueta</title>
+<link rel="stylesheet" href="shared/widget.css">
+<style>
+  html, body { background: transparent; }
+  :root { --fs: 32px; --font: inherit; --text: #fff; --user: inherit; --weight: 800; --stroke: 0px; --stroke-c: #000; }
+  #box {
+    position: fixed;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0 0.3em;
+    font-size: var(--fs);
+    font-family: var(--font);
+    font-weight: var(--weight);
+    color: var(--text);
+    overflow: hidden;
+  }
+  #box.left { justify-content: flex-start; }
+  #box.right { justify-content: flex-end; }
+  #text { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; -webkit-text-stroke: var(--stroke) var(--stroke-c); paint-order: stroke fill; }
+  #box.upper #text { text-transform: uppercase; }
+  #box.shadow #text { text-shadow: var(--vx-outline-strong); }
+  #text .u { color: var(--user); }
+  #text.anim-fade { animation: fade 0.5s ease both; }
+  #text.anim-slide { animation: slide 0.55s var(--vx-ease-out) both; }
+  #text.anim-pop { animation: pop 0.5s var(--vx-ease-spring) both; }
+  @keyframes fade { from { opacity: 0; } to { opacity: 1; } }
+  @keyframes slide { from { opacity: 0; transform: translateY(60%); } to { opacity: 1; transform: none; } }
+  @keyframes pop { 0% { opacity: 0; transform: scale(0.5); } 70% { opacity: 1; transform: scale(1.08); } 100% { transform: none; } }
+</style>
+</head>
+<body>
+<div id="box"><span id="text"></span></div>
+<script src="shared/widget.js"></script>
+<script>
+(function () {
+  "use strict";
+  var V = window.Vexcast;
+  var box = document.getElementById("box");
+  var textEl = document.getElementById("text");
+  var label = V.param("label", "latest_follower");
+
+  // label id → [where, key, default template]
+  var LABELS = {
+    latest_follower: ["latest", "follow", "{user}"],
+    latest_subscriber: ["latest", "subscription", "{user}"],
+    latest_gift: ["latest", "gift_sub", "{user} · {amount}"],
+    latest_bits: ["latest", "bits", "{user} · {amount} bits"],
+    latest_donation: ["latest", "donation", "{user} · {amount}"],
+    latest_raid: ["latest", "raid", "{user} ({amount})"],
+    top_donation: ["top", "donation", "{user} · {amount}"],
+    top_bits: ["top", "bits", "{user} · {amount} bits"],
+    top_raid: ["top", "raid", "{user} ({amount})"],
+    session_top_donation: ["session_top", "donation", "{user} · {amount}"],
+    session_top_bits: ["session_top", "bits", "{user} · {amount} bits"],
+    session_follows: ["session", "follows", "{count}"],
+    session_subs: ["session", "subs", "{count}"],
+    session_bits: ["session", "bits", "{count}"],
+    session_donations: ["session", "donations", "{amount}"],
+    session_raids: ["session", "raids", "{count}"],
+    total_followers: ["totals", "followers", "{count}"],
+    total_subs: ["totals", "subs", "{count}"]
+  };
+  var def = LABELS[label] || LABELS.latest_follower;
+
+  var DEMO = {
+    latest: { follow: { user: "NovaCat" }, subscription: { user: "PixelKnight" }, gift_sub: { user: "Luna", amount: 5 }, bits: { user: "Sofi_gg", amount: 500 }, donation: { user: "ElProfe", amount: 10, currency: "EUR" }, raid: { user: "Mateo_Dev", amount: 42 } },
+    top: { donation: { user: "ElProfe", amount: 50, currency: "EUR" }, bits: { user: "Sofi_gg", amount: 2500 }, raid: { user: "Mateo_Dev", amount: 120 } },
+    session_top: { donation: { user: "ElProfe", amount: 10, currency: "EUR" }, bits: { user: "Sofi_gg", amount: 500 } },
+    session: { follows: 12, subs: 3, bits: 800, donations: 25, raids: 1 }
+  };
+
+  function text() {
+    var s = V.settings("labels");
+    var data = V.isDemo ? DEMO : (V.state && V.state.labels) || {};
+    var tpl = V.param("tpl", "") || (s.templates && s.templates[label]) || def[2];
+    var group = data[def[0]] || {};
+    var v = group[def[1]];
+    if (v === undefined || v === null) return null;
+    var cur = (data.latest && data.latest.donation && data.latest.donation.currency) || (V.state && V.state.widgets && V.state.widgets.goal && V.state.widgets.goal.currency) || "EUR";
+    var vars;
+    if (def[0] === "session" || def[0] === "totals") {
+      vars = { user: "", count: V.formatNumber(Math.round(v * 100) / 100), amount: def[1] === "donations" ? V.formatMoney(v, cur) : V.formatNumber(v) };
+    } else {
+      var amt = v.amount === null || v.amount === undefined ? "" : def[1] === "donation" ? V.formatMoney(v.amount, v.currency || cur) : V.formatNumber(v.amount);
+      vars = { user: v.user || "", amount: amt, count: amt };
+    }
+    return V.escapeHtml(tpl).replace(/\{(user|amount|count)\}/g, function (m, k) {
+      var val = V.escapeHtml(vars[k] || "");
+      return k === "user" ? '<span class="u">' + val + "</span>" : val;
+    });
+  }
+
+  var last = null;
+  var lastLook = "";
+  function render() {
+    var s = V.settings("labels");
+    var look = JSON.stringify([s.fontFamily, s.fontSize, s.fontWeight, s.textColor, s.userColor, s.strokeColor, s.strokeWidth, s.shadow, s.align, s.uppercase]);
+    if (look !== lastLook) {
+      lastLook = look;
+      var r = document.documentElement.style;
+      r.setProperty("--fs", Math.max(8, Number(s.fontSize) || 32) + "px");
+      r.setProperty("--weight", String(s.fontWeight || 800));
+      r.setProperty("--text", /^#[0-9a-f]{3,8}$/i.test(s.textColor) ? s.textColor : "#fff");
+      r.setProperty("--user", /^#[0-9a-f]{3,8}$/i.test(s.userColor) ? s.userColor : "inherit");
+      r.setProperty("--stroke", Math.max(0, Number(s.strokeWidth) || 0) + "px");
+      r.setProperty("--stroke-c", /^#[0-9a-f]{3,8}$/i.test(s.strokeColor) ? s.strokeColor : "#000");
+      r.setProperty("--font", V.fontStack(s.fontFamily) || "inherit");
+      V.loadFont(s.fontFamily);
+      box.className = (s.align === "left" || s.align === "right" ? s.align : "") + (s.uppercase ? " upper" : "") + (s.shadow !== false ? " shadow" : "");
+    }
+    var html = text();
+    if (html === null) html = V.escapeHtml(s.emptyText === undefined ? "—" : s.emptyText);
+    if (html === last) return;
+    var animate = last !== null;
+    last = html;
+    textEl.innerHTML = html;
+    textEl.className = "";
+    if (animate && ["fade", "slide", "pop"].indexOf(s.animation) >= 0) {
+      void textEl.offsetWidth;
+      textEl.className = "anim-" + s.animation;
+    }
+  }
+  V.on("state", render);
+  render();
+})();
+</script>
+</body>
+</html>

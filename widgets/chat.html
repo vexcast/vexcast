@@ -1,0 +1,318 @@
+<!doctype html>
+<!-- Vexcast chat box widget. SPDX-License-Identifier: GPL-3.0-or-later -->
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<title>Vexcast · Chat</title>
+<link rel="stylesheet" href="shared/widget.css">
+<style>
+  html, body { background: transparent; }
+  :root {
+    --fs: 22px;
+    --font: inherit;
+    --text: #fff;
+    --bg: rgba(22, 22, 31, 0.72);
+    --radius: 0.8em;
+    --gap: 0.42em;
+  }
+  #chat {
+    position: fixed;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-end;
+    padding: 0.6em 0.7em;
+    font-size: var(--fs);
+    font-family: var(--font);
+    overflow: hidden;
+    -webkit-mask-image: linear-gradient(to bottom, transparent 0, #000 3.5em);
+    mask-image: linear-gradient(to bottom, transparent 0, #000 3.5em);
+  }
+  #chat.down {
+    flex-direction: column-reverse;
+    justify-content: flex-end;
+    -webkit-mask-image: linear-gradient(to top, transparent 0, #000 3.5em);
+    mask-image: linear-gradient(to top, transparent 0, #000 3.5em);
+  }
+  #chat.right { align-items: flex-end; }
+  #chat.right .msg { text-align: right; }
+  #chat.right .meta { justify-content: flex-end; }
+  .wrap {
+    flex: none;
+    max-width: 100%;
+    overflow: hidden;
+    transition: height 0.38s var(--vx-ease-out), opacity 0.45s ease;
+  }
+  .wrap.entering.anim-slide .msg { animation: enter-slide 0.5s var(--vx-ease-out) both; }
+  .wrap.entering.anim-fade .msg { animation: enter-fade 0.45s ease both; }
+  .wrap.entering.anim-pop .msg { animation: enter-pop 0.5s var(--vx-ease-spring) both; }
+  #chat.right .wrap.entering.anim-slide .msg { animation-name: enter-slide-r; }
+  .wrap.faded { opacity: 0; }
+  .wrap.removing { opacity: 0; transition: height 0.32s ease 0.12s, opacity 0.2s ease; }
+  .msg {
+    position: relative;
+    margin-top: var(--gap);
+    line-height: 1.35;
+    overflow-wrap: anywhere;
+  }
+  #chat.down .msg { margin-top: 0; margin-bottom: var(--gap); }
+  .meta { display: flex; align-items: center; gap: 0.32em; min-width: 0; }
+  .plat { font-size: 1.05em; }
+  .time { font-size: 0.72em; opacity: 0.65; font-variant-numeric: tabular-nums; color: var(--text); }
+  .badges { display: inline-flex; gap: 0.2em; }
+  .badge {
+    display: inline-grid;
+    place-items: center;
+    width: 1.02em;
+    height: 1.02em;
+    border-radius: 0.26em;
+    flex: none;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.4);
+  }
+  img.badge { box-shadow: none; border-radius: 0.15em; object-fit: contain; }
+  .badge svg { width: 72%; height: 72%; fill: #fff; }
+  .badge b { font-size: 0.62em; font-weight: 800; color: #fff; line-height: 1; }
+  .new {
+    font-size: 0.62em;
+    font-weight: 800;
+    padding: 0.12em 0.45em;
+    border-radius: 0.4em;
+    background: #10b981;
+    color: #04261a;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+  }
+  .name {
+    font-weight: 800;
+    letter-spacing: 0.005em;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    text-shadow: var(--vx-outline);
+  }
+  .text { color: var(--text); font-weight: 500; text-shadow: var(--vx-outline); }
+  .bot .text { opacity: 0.85; }
+  /* ---------- glass ---------- */
+  .theme-glass .msg {
+    padding: 0.5em 0.75em 0.55em;
+    border-radius: var(--radius);
+    background: var(--bg);
+    border: 1px solid rgba(255, 255, 255, 0.13);
+    box-shadow: 0 0.3em 1em rgba(0, 0, 0, 0.28), inset 0 1px 0 rgba(255, 255, 255, 0.07);
+  }
+  .theme-glass .meta { margin-bottom: 0.12em; }
+  .theme-glass .msg::before {
+    content: "";
+    position: absolute;
+    left: 0;
+    top: 0.65em;
+    bottom: 0.65em;
+    width: 0.16em;
+    border-radius: 0 0.2em 0.2em 0;
+    background: var(--uc, #9b87ff);
+    opacity: 0.95;
+  }
+  /* ---------- solid ---------- */
+  .theme-solid .msg {
+    padding: 0.5em 0.8em 0.55em 0.9em;
+    border-radius: calc(var(--radius) * 0.6);
+    background: var(--bg);
+    border-left: 0.22em solid var(--uc, #9b87ff);
+    box-shadow: 0 0.2em 0.6em rgba(0, 0, 0, 0.35);
+  }
+  .theme-solid .meta { margin-bottom: 0.1em; }
+  .theme-solid .name, .theme-solid .text { text-shadow: none; }
+  /* ---------- bubble ---------- */
+  .theme-bubble .msg { display: flex; flex-direction: column; align-items: flex-start; }
+  #chat.right .theme-bubble .msg, .theme-bubble#chat.right .msg { align-items: flex-end; }
+  .theme-bubble .meta { margin: 0 0 0.18em 0.4em; }
+  .theme-bubble .text {
+    display: inline-block;
+    max-width: 100%;
+    padding: 0.45em 0.8em;
+    border-radius: var(--radius) var(--radius) var(--radius) 0.2em;
+    background: var(--bg);
+    text-shadow: none;
+    box-shadow: 0 0.2em 0.6em rgba(0, 0, 0, 0.3);
+  }
+  #chat.right.theme-bubble .text { border-radius: var(--radius) var(--radius) 0.2em var(--radius); }
+  /* ---------- neon ---------- */
+  .theme-neon .msg {
+    padding: 0.5em 0.8em 0.55em;
+    border-radius: var(--radius);
+    background: var(--bg);
+    border: 0.08em solid var(--uc, #9b87ff);
+    box-shadow: 0 0 0.7em var(--uc, #9b87ff), inset 0 0 0.6em rgba(0, 0, 0, 0.5);
+  }
+  .theme-neon .name { text-shadow: 0 0 0.45em var(--uc, #9b87ff); }
+  .theme-neon .text { text-shadow: 0 0 0.3em rgba(255, 255, 255, 0.35); }
+  /* ---------- minimal (inline, outlined text) ---------- */
+  .theme-minimal .msg { margin-top: calc(var(--gap) * 0.66); }
+  .theme-minimal .meta { display: inline-flex; vertical-align: -0.12em; margin-right: 0.15em; }
+  .theme-minimal .meta::after { content: ":"; color: var(--text); font-weight: 700; margin-left: -0.3em; text-shadow: var(--vx-outline-strong); }
+  .theme-minimal .text { display: inline; text-shadow: var(--vx-outline-strong); font-weight: 600; }
+  .theme-minimal .name { text-shadow: var(--vx-outline-strong); }
+  @keyframes enter-slide { from { opacity: 0; transform: translate3d(-0.8em, 0.6em, 0) scale(0.97); } to { opacity: 1; transform: none; } }
+  @keyframes enter-slide-r { from { opacity: 0; transform: translate3d(0.8em, 0.6em, 0) scale(0.97); } to { opacity: 1; transform: none; } }
+  @keyframes enter-fade { from { opacity: 0; } to { opacity: 1; } }
+  @keyframes enter-pop { 0% { opacity: 0; transform: scale(0.6); } 70% { opacity: 1; transform: scale(1.04); } 100% { transform: none; } }
+</style>
+</head>
+<body>
+<div id="chat" class="theme-glass" aria-live="polite"></div>
+<script src="shared/widget.js"></script>
+<script>
+(function () {
+  "use strict";
+  var V = window.Vexcast;
+  var box = document.getElementById("chat");
+  var BADGE_STYLE = {
+    broadcaster: ["#e5484d", '<path d="M3 7.5A1.5 1.5 0 0 1 4.5 6h9A1.5 1.5 0 0 1 15 7.5v9a1.5 1.5 0 0 1-1.5 1.5h-9A1.5 1.5 0 0 1 3 16.5zM16 10l5-3v10l-5-3z"/>'],
+    moderator: ["#12a150", '<path d="M14.5 3l6.5 6.5-2 2-1.5-1.5-6.3 6.3 1.3 1.3-2 2-1.3-1.3L5 22l-3-3 3.7-4.2-1.3-1.3 2-2 1.3 1.3 6.3-6.3L12.5 5z"/>'],
+    vip: ["#e0408a", '<path d="M6.5 4h11L22 9.5 12 21 2 9.5z"/>'],
+    subscriber: ["#7c5cff", '<path d="M12 2.6l2.9 5.9 6.5.9-4.7 4.6 1.1 6.4L12 17.4l-5.8 3 1.1-6.4-4.7-4.6 6.5-.9z"/>'],
+    founder: ["#d39e00", '<path d="M12 2.6l2.9 5.9 6.5.9-4.7 4.6 1.1 6.4L12 17.4l-5.8 3 1.1-6.4-4.7-4.6 6.5-.9z"/>'],
+    member: ["#0f9d58", '<path d="M12 2.4l8.2 3.1v6.1c0 5.1-3.5 8.8-8.2 10.1-4.7-1.3-8.2-5-8.2-10.1V5.5z"/>'],
+    verified: ["#3b82f6", '<path d="M9.5 16.6L5 12.1l1.8-1.8 2.7 2.7 7.7-7.7L19 7.1z"/>'],
+    bot: ["#0aa5c2", '<rect x="4" y="7" width="16" height="12" rx="3"/><rect x="11" y="3" width="2" height="4"/><circle cx="9" cy="13" r="1.6" fill="#0aa5c2"/><circle cx="15" cy="13" r="1.6" fill="#0aa5c2"/>']
+  };
+  BADGE_STYLE.owner = BADGE_STYLE.broadcaster;
+  BADGE_STYLE.mod = BADGE_STYLE.moderator;
+  BADGE_STYLE.sub = BADGE_STYLE.subscriber;
+  function badgeHtml(b) {
+    var title = V.escapeHtml(b.label || b.id);
+    // Real badge images (Twitch, Kick subscriber badges) when the platform gives them.
+    if (b.image && /^https:\/\//.test(b.image)) return '<img class="badge" alt="' + title + '" title="' + title + '" src="' + V.escapeHtml(b.image) + '">';
+    var st = BADGE_STYLE[b.id];
+    if (st) return '<span class="badge" title="' + title + '" style="background:' + st[0] + '"><svg viewBox="0 0 24 24">' + st[1] + "</svg></span>";
+    var letter = V.escapeHtml(String(b.label || b.id || "?").charAt(0).toUpperCase());
+    return '<span class="badge" title="' + title + '" style="background:#5b6170"><b>' + letter + "</b></span>";
+  }
+  function hex(c, fallback) {
+    return typeof c === "string" && /^#[0-9a-f]{3,8}$/i.test(c) ? c : fallback;
+  }
+  function rgba(c, a) {
+    var h = hex(c, "#16161f").slice(1);
+    if (h.length === 3) h = h.replace(/./g, "$&$&");
+    var n = parseInt(h.slice(0, 6), 16);
+    return "rgba(" + (n >> 16 & 255) + "," + (n >> 8 & 255) + "," + (n & 255) + "," + Math.max(0, Math.min(1, a)) + ")";
+  }
+  var SYSTEM = /^(arial|impact|verdana|tahoma|georgia|times new roman|courier new|segoe ui|trebuchet ms|comic sans ms|system-ui|sans-serif|serif|monospace)$/i;
+  var loadedFont = "";
+  function loadFont(f) {
+    f = String(f || "").trim();
+    if (!f || f === loadedFont || SYSTEM.test(f)) return;
+    loadedFont = f;
+    var l = document.createElement("link");
+    l.rel = "stylesheet";
+    l.href = "https://fonts.googleapis.com/css2?family=" + encodeURIComponent(f).replace(/%20/g, "+") + ":wght@400;500;600;700;800&display=swap";
+    document.head.appendChild(l);
+  }
+
+  var s = V.settings("chatBox");
+  var hidden = {};
+  function applySettings() {
+    s = V.settings("chatBox");
+    var theme = ["glass", "solid", "minimal", "bubble", "neon"].indexOf(s.theme) >= 0 ? s.theme : "glass";
+    box.className = "theme-" + theme + (s.direction === "down" ? " down" : "") + (s.align === "right" ? " right" : "");
+    var root = document.documentElement.style;
+    root.setProperty("--fs", Math.max(10, Number(s.fontSize) || 22) + "px");
+    root.setProperty("--text", hex(s.textColor, "#ffffff"));
+    root.setProperty("--bg", rgba(s.bgColor, Number(s.bgOpacity)));
+    root.setProperty("--radius", Math.max(0, Number(s.radius) || 0) + "em");
+    root.setProperty("--gap", Math.max(0, Number(s.spacing) || 0) + "em");
+    root.setProperty("--font", s.fontFamily ? "'" + String(s.fontFamily).replace(/'/g, "") + "', system-ui, sans-serif" : "inherit");
+    loadFont(s.fontFamily);
+    hidden = {};
+    (s.hiddenUsers || []).forEach(function (u) { if (u) hidden[String(u).trim().toLowerCase()] = 1; });
+    trim();
+  }
+  var byId = {};
+  function removeWrap(wrap, animate) {
+    if (!wrap || wrap.__removing) return;
+    wrap.__removing = true;
+    delete byId[wrap.__id];
+    clearTimeout(wrap.__fadeTimer);
+    if (!animate) { if (wrap.parentNode) wrap.parentNode.removeChild(wrap); return; }
+    wrap.style.height = wrap.offsetHeight + "px";
+    void wrap.offsetHeight;
+    wrap.classList.add("removing");
+    wrap.style.height = "0px";
+    setTimeout(function () { if (wrap.parentNode) wrap.parentNode.removeChild(wrap); }, 520);
+  }
+  function trim() {
+    var max = Math.max(1, Math.round(Number(s.maxMessages) || 12));
+    var live = [];
+    for (var i = 0; i < box.children.length; i++) if (!box.children[i].__removing) live.push(box.children[i]);
+    for (var j = 0; j < live.length - max; j++) removeWrap(live[j], false);
+    // Drop messages far beyond the visible edge.
+    var total = 0;
+    for (var k = 0; k < box.children.length; k++) total += box.children[k].offsetHeight;
+    while (box.children.length > 1 && total > box.clientHeight * 1.5) {
+      total -= box.firstChild.offsetHeight;
+      removeWrap(box.firstChild, false);
+    }
+  }
+  function timeOf(ts) {
+    var d = new Date(ts || Date.now());
+    return ("0" + d.getHours()).slice(-2) + ":" + ("0" + d.getMinutes()).slice(-2);
+  }
+  function add(m) {
+    if (!m || !m.id || m.flagged || byId[m.id]) return;
+    var user = m.user || { name: "?", badges: [] };
+    if (s.hideBots && m.isBot) return;
+    if (s.hideCommands && /^\s*!/.test(m.text || "")) return;
+    if (hidden[String(user.name || "").toLowerCase()]) return;
+    var color = s.nameColorMode === "custom" ? hex(s.nameColor, "#9b87ff") : hex(user.color, V.hashColor(user.name));
+    var badges = (user.badges || []).slice();
+    if (m.isBot && !badges.some(function (b) { return b.id === "bot"; })) badges.push({ id: "bot", label: "Bot" });
+    var isNew = s.showNewBadge && m.viewer && m.viewer.firstTime && !m.isBot;
+    var anim = ["slide", "fade", "pop", "none"].indexOf(s.animation) >= 0 ? s.animation : "slide";
+    var wrap = document.createElement("div");
+    wrap.className = "wrap entering anim-" + anim + (m.isBot ? " bot" : "");
+    wrap.__id = m.id;
+    wrap.innerHTML =
+      '<div class="msg" style="--uc:' + color + '">' +
+        '<div class="meta">' +
+          (s.showTime ? '<span class="time">' + timeOf(m.ts) + "</span>" : "") +
+          (s.showPlatformIcons ? '<span class="vx-icon plat">' + V.icon(m.platform) + "</span>" : "") +
+          (s.showBadges && badges.length ? '<span class="badges">' + badges.map(badgeHtml).join("") + "</span>" : "") +
+          '<span class="name" style="color:' + color + '">' + V.escapeHtml(user.name) + "</span>" +
+          (isNew ? '<span class="new">' + V.escapeHtml(V.t("chat.new")) + "</span>" : "") +
+        "</div>" +
+        '<div class="text">' + V.escapeHtml(m.text) + "</div>" +
+      "</div>";
+    if (anim === "none") {
+      box.appendChild(wrap);
+      wrap.classList.remove("entering");
+    } else {
+      wrap.style.height = "0px";
+      box.appendChild(wrap);
+      var cs = getComputedStyle(wrap.firstChild);
+      var h = wrap.firstChild.offsetHeight + parseFloat(cs.marginTop || 0) + parseFloat(cs.marginBottom || 0);
+      wrap.style.height = h + "px";
+      setTimeout(function () {
+        if (!wrap.__removing) wrap.style.height = "";
+        wrap.classList.remove("entering");
+      }, 520);
+    }
+    byId[m.id] = wrap;
+    var fade = Number(s.fadeAfterSec) || 0;
+    if (fade > 0) {
+      wrap.__fadeTimer = setTimeout(function () {
+        wrap.classList.add("faded");
+        setTimeout(function () { removeWrap(wrap, false); }, 500);
+      }, fade * 1000);
+    }
+    trim();
+  }
+  V.on("state", applySettings);
+  V.on("chat", add);
+  V.on("chat_deleted", function (d) { if (d && d.id) removeWrap(byId[d.id], true); });
+  applySettings();
+})();
+</script>
+</body>
+</html>

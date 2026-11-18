@@ -1,0 +1,171 @@
+<!doctype html>
+<!-- Vexcast giveaway (entries from every platform, animated winner reveal). SPDX-License-Identifier: GPL-3.0-or-later -->
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<title>Vexcast · Sorteo</title>
+<link rel="stylesheet" href="shared/widget.css">
+<style>
+  html, body { background: transparent; }
+  :root { --fs: 28px; --font: inherit; --text: #fff; --accent: #f59e0b; --bg: rgba(20, 18, 31, 0.88); }
+  #stage { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; padding: 3%; font-size: var(--fs); font-family: var(--font); color: var(--text); overflow: hidden; }
+  .card { position: relative; width: min(100%, 20em); padding: 0.85em 1em 0.9em; border-radius: 0.75em; background: var(--bg); box-shadow: 0 0.4em 1.6em rgba(0, 0, 0, 0.35); text-align: center; transition: opacity 0.4s ease, transform 0.4s var(--vx-ease-out); }
+  .card.hidden { opacity: 0; transform: translateY(0.5em) scale(0.98); }
+  .theme-solid .card { box-shadow: none; }
+  .theme-neon .card { border: 2px solid var(--accent); box-shadow: 0 0 1em var(--accent), inset 0 0 0.8em rgba(0, 0, 0, 0.5); }
+  .theme-minimal .card { background: none; box-shadow: none; }
+  .theme-minimal .card * { text-shadow: var(--vx-outline-strong); }
+  .kicker { font-size: 0.55em; font-weight: 800; letter-spacing: 0.14em; text-transform: uppercase; color: var(--accent); }
+  .title { font-weight: 800; line-height: 1.2; margin: 0.15em 0 0.5em; overflow-wrap: anywhere; }
+  .join { display: inline-block; padding: 0.25em 0.7em; border-radius: 0.5em; background: rgba(255, 255, 255, 0.1); font-weight: 800; font-size: 0.8em; }
+  .join b { color: var(--accent); }
+  .count { margin-top: 0.45em; font-size: 0.62em; opacity: 0.8; }
+  .recent { margin-top: 0.4em; height: 1.3em; font-size: 0.6em; opacity: 0.85; overflow: hidden; }
+  .recent span { display: inline-block; animation: pop 0.45s var(--vx-ease-spring) both; }
+  .reel { position: relative; height: 1.6em; margin: 0.35em 0 0.2em; overflow: hidden; -webkit-mask-image: linear-gradient(transparent, #000 25%, #000 75%, transparent); mask-image: linear-gradient(transparent, #000 25%, #000 75%, transparent); }
+  .reel .strip { position: absolute; left: 0; right: 0; top: 0; }
+  .reel .strip div { height: 1.6em; line-height: 1.6em; font-size: 1.05em; font-weight: 900; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .winner { color: var(--accent); }
+  .burst { position: absolute; inset: 0; pointer-events: none; }
+  .burst i { position: absolute; left: 50%; top: 40%; width: 0.35em; height: 0.18em; border-radius: 1px; animation: fly 1.4s cubic-bezier(.2,.7,.3,1) forwards; }
+  @keyframes pop { from { opacity: 0; transform: scale(0.6); } to { opacity: 1; transform: none; } }
+  @keyframes fly { to { transform: translate(var(--x), var(--y)) rotate(var(--r)); opacity: 0; } }
+</style>
+</head>
+<body>
+<div id="stage"></div>
+<script src="shared/widget.js"></script>
+<script>
+(function () {
+  "use strict";
+  var V = window.Vexcast;
+  var stage = document.getElementById("stage");
+  var g = null;
+  var shownDraw = 0;
+  var lastLook = "";
+
+  function look() {
+    var s = V.settings("giveaway");
+    var key = JSON.stringify(s);
+    if (key === lastLook) return s;
+    lastLook = key;
+    var r = document.documentElement.style;
+    r.setProperty("--fs", Math.max(12, Number(s.fontSize) || 28) + "px");
+    r.setProperty("--text", /^#[0-9a-f]{3,8}$/i.test(s.textColor) ? s.textColor : "#fff");
+    if (/^#[0-9a-f]{3,8}$/i.test(s.accentColor)) r.setProperty("--accent", s.accentColor);
+    r.setProperty("--bg", V.rgba(s.bgColor || "#14121f", s.bgOpacity === undefined ? 0.88 : s.bgOpacity));
+    r.setProperty("--font", V.fontStack(s.fontFamily) || "inherit");
+    V.loadFont(s.fontFamily);
+    var b = document.body.classList;
+    ["glass", "solid", "neon", "minimal"].forEach(function (t) { b.toggle("theme-" + t, (s.theme || "glass") === t); });
+    return s;
+  }
+
+  function card(html) {
+    var c = stage.querySelector(".card");
+    if (!c) {
+      stage.innerHTML = '<div class="card hidden"></div>';
+      c = stage.querySelector(".card");
+      void c.offsetWidth;
+      c.classList.remove("hidden");
+    }
+    c.innerHTML = html;
+    return c;
+  }
+
+  function confetti(c) {
+    if (V.settings("giveaway").confetti === false) return;
+    var box = document.createElement("div");
+    box.className = "burst";
+    var colors = ["#ffd166", "#ff5e7e", "#4cc9f0", "#06d6a0", "#ffffff", "#9b5de5"];
+    for (var i = 0; i < 60; i++) {
+      var p = document.createElement("i");
+      var a = Math.random() * Math.PI * 2;
+      var d = 3 + Math.random() * 7;
+      p.style.background = colors[i % colors.length];
+      p.style.setProperty("--x", Math.cos(a) * d + "em");
+      p.style.setProperty("--y", Math.sin(a) * d + 2 + "em");
+      p.style.setProperty("--r", Math.random() * 720 + "deg");
+      p.style.animationDelay = Math.random() * 0.15 + "s";
+      box.appendChild(p);
+    }
+    c.appendChild(box);
+    setTimeout(function () { box.remove(); }, 1800);
+  }
+
+  function spin(w) {
+    var names = (g.sample && g.sample.length ? g.sample : ["…", "…", "…"]).slice();
+    while (names.length < 14) names = names.concat(names);
+    names = names.slice(0, 26);
+    names.push(w.name);
+    var rows = names.map(function (n, i) { return "<div" + (i === names.length - 1 ? ' class="winner"' : "") + ">" + V.escapeHtml(n) + "</div>"; }).join("");
+    var c = card('<div class="kicker">' + V.escapeHtml(V.t("gwDrawing")) + '</div><div class="title">' + V.escapeHtml(g.title) + '</div><div class="reel"><div class="strip">' + rows + '</div></div><div class="count"></div>');
+    var strip = c.querySelector(".strip");
+    var rowH = strip.firstChild.getBoundingClientRect().height;
+    strip.animate([{ transform: "translateY(0)" }, { transform: "translateY(" + -(names.length - 1) * rowH + "px)" }], { duration: 4200, easing: "cubic-bezier(.12,.75,.15,1)", fill: "forwards" });
+    setTimeout(function () {
+      c.querySelector(".kicker").textContent = V.t("gwWinner");
+      c.querySelector(".count").innerHTML = '<span class="vx-icon">' + V.icon(w.platform) + "</span> " + V.escapeHtml(w.platform);
+      confetti(c);
+    }, 4250);
+  }
+
+  function render() {
+    look();
+    if (!g) {
+      var c = stage.querySelector(".card");
+      if (c) { c.classList.add("hidden"); setTimeout(function () { if (!g) stage.innerHTML = ""; }, 450); }
+      return;
+    }
+    if (g.winner && g.draws !== shownDraw) {
+      shownDraw = g.draws;
+      spin(g.winner);
+      return;
+    }
+    if (g.winner) return; // keep the reveal on screen
+    var unit = (V.state && V.state.bot && V.state.bot.loyalty && V.state.bot.loyalty.name) || "puntos";
+    card('<div class="kicker">' + V.escapeHtml(V.t("gwKicker")) + '</div><div class="title">' + V.escapeHtml(g.title) + "</div>" +
+      (g.open ? '<div class="join">' + V.escapeHtml(V.t("gwType")) + " <b>" + V.escapeHtml(g.keyword) + "</b>" + (g.cost ? " · " + g.cost + " " + V.escapeHtml(unit) : "") + "</div>" : '<div class="join">' + V.escapeHtml(V.t("gwClosed")) + "</div>") +
+      '<div class="count">' + V.escapeHtml(V.t("gwEntries", { n: g.entries })) + '</div><div class="recent">' + (g.recent && g.recent[0] ? "<span>+ " + V.escapeHtml(g.recent[0]) + "</span>" : "") + "</div>");
+  }
+
+  function set(x) {
+    if (x && g && x.id !== g.id) shownDraw = 0;
+    if (x && !g && x.winner) shownDraw = x.draws; // reloaded after the draw: no replay
+    g = x || null;
+    render();
+  }
+
+  V.on("giveaway", set);
+  V.on("state", function () { look(); });
+
+  if (V.isDemo) {
+    var people = ["Luna", "PixelKnight", "Sofi_gg", "ElProfe", "NovaCat", "Mateo_Dev", "Kira", "Dani", "Bea_live", "Tomás"];
+    var demo = { id: "d", title: "Una copia del juego", keyword: "!participar", cost: 0, open: true, entries: 0, recent: [], sample: [], winner: null, draws: 0 };
+    set(JSON.parse(JSON.stringify(demo)));
+    var tick = 0;
+    setInterval(function () {
+      tick++;
+      if (tick < 8) {
+        demo.entries++;
+        demo.recent = [people[tick % people.length]];
+      } else if (tick === 8) {
+        demo.open = false;
+        demo.sample = people.slice();
+        demo.winner = { name: "Sofi_gg", platform: "twitch" };
+        demo.draws++;
+      } else if (tick > 14) {
+        tick = 0;
+        demo = { id: "d" + Date.now(), title: demo.title, keyword: demo.keyword, cost: 0, open: true, entries: 0, recent: [], sample: [], winner: null, draws: 0 };
+      }
+      set(JSON.parse(JSON.stringify(demo)));
+    }, 1000);
+  } else {
+    fetch(V.url("/api/v1/giveaway")).then(function (r) { return r.ok ? r.json() : null; }).then(set).catch(function () {});
+  }
+})();
+</script>
+</body>
+</html>

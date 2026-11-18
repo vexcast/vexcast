@@ -1,0 +1,155 @@
+<!doctype html>
+<!-- Vexcast song requests player (YouTube) + now playing card. SPDX-License-Identifier: GPL-3.0-or-later -->
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<title>Vexcast · Canciones</title>
+<link rel="stylesheet" href="shared/widget.css">
+<style>
+  html, body { background: transparent; }
+  :root { --fs: 24px; --font: inherit; --text: #fff; --accent: #22d3ee; --bg: rgba(20, 18, 31, 0.85); }
+  #wrap { position: fixed; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: flex-end; gap: 0.5em; padding: 3%; font-size: var(--fs); font-family: var(--font); color: var(--text); }
+  #video { width: min(100%, 32em); aspect-ratio: 16 / 9; border-radius: 0.5em; overflow: hidden; }
+  #video.off { position: fixed; left: -9999px; width: 320px; height: 180px; }
+  #video iframe { width: 100%; height: 100%; border: 0; }
+  .card { width: min(100%, 22em); display: flex; align-items: center; gap: 0.6em; padding: 0.55em 0.75em; border-radius: 0.6em; background: var(--bg); box-shadow: 0 0.3em 1.2em rgba(0, 0, 0, 0.3); transition: opacity 0.4s ease, transform 0.4s var(--vx-ease-out); }
+  .card.hidden { opacity: 0; transform: translateY(0.5em); }
+  .theme-minimal .card { background: none; box-shadow: none; }
+  .theme-minimal .card * { text-shadow: var(--vx-outline-strong); }
+  .theme-neon .card { border: 2px solid var(--accent); box-shadow: 0 0 0.9em var(--accent); }
+  .eq { flex: none; display: flex; align-items: flex-end; gap: 0.12em; width: 1.2em; height: 1.1em; }
+  .eq i { flex: 1; background: var(--accent); border-radius: 1px; animation: eq 0.9s ease-in-out infinite; }
+  .eq i:nth-child(2) { animation-delay: 0.2s; } .eq i:nth-child(3) { animation-delay: 0.4s; }
+  .paused .eq i { animation-play-state: paused; height: 30%; }
+  @keyframes eq { 0%, 100% { height: 25%; } 50% { height: 100%; } }
+  .meta { min-width: 0; flex: 1; }
+  .title { font-weight: 800; font-size: 0.8em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .by { font-size: 0.56em; opacity: 0.75; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .bar { margin-top: 0.3em; height: 0.12em; border-radius: 1em; background: rgba(255, 255, 255, 0.15); overflow: hidden; }
+  .bar i { display: block; height: 100%; width: 0; background: var(--accent); }
+  .no-card .card { display: none; }
+</style>
+</head>
+<body>
+<div id="wrap">
+  <div id="video" class="off"><div id="player"></div></div>
+  <div class="card hidden" id="card"><div class="eq"><i></i><i></i><i></i></div><div class="meta"><div class="title" id="title"></div><div class="by" id="by"></div><div class="bar"><i id="bar"></i></div></div></div>
+</div>
+<script src="shared/widget.js"></script>
+<script>
+(function () {
+  "use strict";
+  var V = window.Vexcast;
+  // Only the copy added to the scene (?player=1) plays audio; previews just show the card.
+  var isPlayer = /^(1|true|yes)$/i.test(V.param("player", "")) && !V.isDemo;
+  var q = null;
+  var yt = null;
+  var ready = false;
+  var loadedId = null;
+  var reportedDur = null;
+  var lastLook = "";
+  var card = document.getElementById("card");
+
+  function look() {
+    var s = V.settings("songs");
+    var key = JSON.stringify(s);
+    if (key === lastLook) return s;
+    lastLook = key;
+    var r = document.documentElement.style;
+    r.setProperty("--fs", Math.max(10, Number(s.fontSize) || 24) + "px");
+    r.setProperty("--text", /^#[0-9a-f]{3,8}$/i.test(s.textColor) ? s.textColor : "#fff");
+    if (/^#[0-9a-f]{3,8}$/i.test(s.accentColor)) r.setProperty("--accent", s.accentColor);
+    r.setProperty("--bg", V.rgba(s.bgColor || "#14121f", s.bgOpacity === undefined ? 0.85 : s.bgOpacity));
+    r.setProperty("--font", V.fontStack(s.fontFamily) || "inherit");
+    V.loadFont(s.fontFamily);
+    var b = document.body.classList;
+    ["glass", "solid", "neon", "minimal"].forEach(function (t) { b.toggle("theme-" + t, (s.theme || "glass") === t); });
+    b.toggle("no-card", s.showCard === false);
+    document.getElementById("video").classList.toggle("off", !(isPlayer && s.showVideo));
+    return s;
+  }
+
+  function post(path, body) {
+    return fetch(V.url("/api/v1/songs" + path), { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body || {}) }).catch(function () {});
+  }
+
+  function showCard() {
+    look();
+    var cur = q && q.current;
+    if (!cur) { card.classList.add("hidden"); return; }
+    document.getElementById("title").textContent = cur.title;
+    document.getElementById("by").textContent = cur.requestedBy ? V.t("songBy", { user: cur.requestedBy }) : cur.author || "";
+    card.classList.toggle("paused", !!q.paused);
+    card.classList.remove("hidden");
+  }
+
+  function sync() {
+    showCard();
+    if (!isPlayer || !ready || !yt) return;
+    var cur = q && q.current;
+    if (!cur) {
+      if (loadedId) { yt.stopVideo(); loadedId = null; }
+      return;
+    }
+    yt.setVolume(Math.max(0, Math.min(100, q.volume == null ? 50 : q.volume)));
+    if (cur.id !== loadedId) {
+      loadedId = cur.id;
+      reportedDur = null;
+      yt.loadVideoById(cur.videoId);
+    }
+    if (q.paused) yt.pauseVideo();
+    else if (yt.getPlayerState && yt.getPlayerState() === 2) yt.playVideo();
+  }
+
+  function onState(e) {
+    var cur = q && q.current;
+    if (!cur) return;
+    if (e.data === 1 && reportedDur !== cur.id) {
+      reportedDur = cur.id;
+      var d = Math.round(yt.getDuration() || 0);
+      var data = yt.getVideoData ? yt.getVideoData() : null;
+      post("/duration", { id: cur.id, sec: d, title: data && data.title ? data.title : null });
+    }
+    if (e.data === 0) post("/ended", { id: cur.id });
+  }
+
+  if (isPlayer) {
+    window.onYouTubeIframeAPIReady = function () {
+      yt = new YT.Player("player", {
+        width: "100%",
+        height: "100%",
+        playerVars: { autoplay: 1, controls: 0, disablekb: 1, modestbranding: 1, rel: 0, playsinline: 1 },
+        events: {
+          onReady: function () { ready = true; sync(); },
+          onStateChange: onState,
+          onError: function () { var cur = q && q.current; if (cur) post("/ended", { id: cur.id }); }
+        }
+      });
+    };
+    var tag = document.createElement("script");
+    tag.src = "https://www.youtube.com/iframe_api";
+    document.head.appendChild(tag);
+    setInterval(function () {
+      if (!ready || !yt || !yt.getDuration) return;
+      var d = yt.getDuration() || 0;
+      document.getElementById("bar").style.width = d ? (100 * (yt.getCurrentTime() || 0)) / d + "%" : "0";
+    }, 500);
+  }
+
+  V.on("songs", function (x) { q = x; sync(); });
+  V.on("state", function () { look(); });
+
+  if (V.isDemo) {
+    q = { current: { id: "d", videoId: "", title: "Lofi beats para concentrarse", author: "Lofi Girl", requestedBy: "Luna" }, queue: [], paused: false, volume: 50 };
+    var p = 0;
+    setInterval(function () { p = (p + 2) % 100; document.getElementById("bar").style.width = p + "%"; }, 400);
+    showCard();
+  } else {
+    fetch(V.url("/api/v1/songs")).then(function (r) { return r.ok ? r.json() : null; }).then(function (x) { if (x) { q = x; sync(); } }).catch(function () {});
+  }
+})();
+</script>
+</body>
+</html>

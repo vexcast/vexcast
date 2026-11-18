@@ -1,0 +1,199 @@
+<!doctype html>
+<!-- Vexcast highlighted chat message widget. SPDX-License-Identifier: GPL-3.0-or-later -->
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<title>Vexcast · Mensaje destacado</title>
+<link rel="stylesheet" href="shared/widget.css">
+<style>
+  html, body { background: transparent; }
+  :root {
+    --fs: 34px;
+    --font: inherit;
+    --text: #fff;
+    --accent: #7c5cff;
+    --bg: rgba(20, 18, 31, 0.85);
+  }
+  #stage {
+    position: fixed;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 4%;
+    font-size: var(--fs);
+    font-family: var(--font);
+  }
+  .card {
+    position: relative;
+    max-width: min(100%, 26em);
+    padding: 0.7em 1em 0.8em 1.15em;
+    border-radius: 0.6em;
+    background: var(--bg);
+    color: var(--text);
+    box-shadow: 0 0.4em 1.6em rgba(0, 0, 0, 0.35);
+    overflow: hidden;
+    opacity: 0;
+  }
+  .card::before {
+    content: "";
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    width: 0.22em;
+    background: var(--accent);
+  }
+  .theme-solid .card { box-shadow: none; }
+  .theme-neon .card { border: 2px solid var(--accent); box-shadow: 0 0 1.1em var(--accent), inset 0 0 0.8em rgba(0, 0, 0, 0.5); }
+  .theme-neon .card::before { display: none; }
+  .theme-neon .who b { text-shadow: 0 0 0.5em var(--accent); }
+  .theme-minimal .card { background: none; box-shadow: none; padding-left: 0.2em; }
+  .theme-minimal .card::before { display: none; }
+  .theme-minimal .text, .theme-minimal .who { text-shadow: var(--vx-outline-strong); }
+  .who {
+    display: flex;
+    align-items: center;
+    gap: 0.35em;
+    font-size: 0.62em;
+    font-weight: 800;
+    margin-bottom: 0.2em;
+    white-space: nowrap;
+  }
+  .who b { color: var(--accent); overflow: hidden; text-overflow: ellipsis; }
+  .who .vx-icon { font-size: 0.95em; }
+  .badges { display: inline-flex; gap: 0.2em; }
+  .badges img, .badges span { width: 1.1em; height: 1.1em; border-radius: 0.2em; object-fit: contain; }
+  .badges span { display: inline-grid; place-items: center; background: #5b6170; font-size: 0.7em; color: #fff; }
+  .no-platform .vx-icon, .no-badges .badges { display: none; }
+  .text {
+    font-weight: 700;
+    line-height: 1.25;
+    overflow-wrap: anywhere;
+    display: -webkit-box;
+    -webkit-line-clamp: 4;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+  .timer {
+    position: absolute;
+    left: 0;
+    bottom: 0;
+    height: 0.09em;
+    width: 100%;
+    background: var(--accent);
+    opacity: 0.7;
+    transform-origin: left;
+  }
+  .card.in.anim-slide { animation: inSlide 0.6s var(--vx-ease-out) both; }
+  .card.in.anim-pop { animation: inPop 0.55s var(--vx-ease-spring) both; }
+  .card.in.anim-fade { animation: inFade 0.5s ease both; }
+  .card.out { animation: out 0.45s ease both; }
+  @keyframes inSlide { from { opacity: 0; transform: translateY(0.8em); } to { opacity: 1; transform: none; } }
+  @keyframes inPop { 0% { opacity: 0; transform: scale(0.6); } 70% { opacity: 1; transform: scale(1.04); } 100% { opacity: 1; transform: none; } }
+  @keyframes inFade { from { opacity: 0; } to { opacity: 1; } }
+  @keyframes out { from { opacity: 1; } to { opacity: 0; transform: translateY(-0.4em); } }
+  @keyframes shrink { from { transform: scaleX(1); } to { transform: scaleX(0); } }
+</style>
+</head>
+<body>
+<div id="stage"></div>
+<script src="shared/widget.js"></script>
+<script>
+(function () {
+  "use strict";
+  var V = window.Vexcast;
+  var stage = document.getElementById("stage");
+  var s = V.settings("highlight");
+  var current = null; // {id, el, timer}
+  var lastKey = "";
+
+  function apply() {
+    s = V.settings("highlight");
+    var r = document.documentElement.style;
+    r.setProperty("--fs", Math.max(12, Number(s.fontSize) || 34) + "px");
+    r.setProperty("--text", /^#[0-9a-f]{3,8}$/i.test(s.textColor) ? s.textColor : "#fff");
+    if (/^#[0-9a-f]{3,8}$/i.test(s.accentColor)) r.setProperty("--accent", s.accentColor);
+    r.setProperty("--bg", V.rgba(s.bgColor || "#14121f", s.bgOpacity === undefined ? 0.85 : s.bgOpacity));
+    r.setProperty("--font", V.fontStack(s.fontFamily) || "inherit");
+    V.loadFont(s.fontFamily);
+    var b = document.body.classList;
+    ["glass", "solid", "neon", "minimal"].forEach(function (t) { b.toggle("theme-" + t, (s.theme || "glass") === t); });
+    b.toggle("no-platform", s.showPlatform === false);
+    b.toggle("no-badges", s.showBadges === false);
+  }
+
+  function badges(list) {
+    return (list || []).map(function (bd) {
+      var title = V.escapeHtml(bd.label || bd.id || "");
+      if (bd.image && /^https:\/\//.test(bd.image)) return '<img alt="' + title + '" title="' + title + '" src="' + V.escapeHtml(bd.image) + '">';
+      return '<span title="' + title + '">' + V.escapeHtml((bd.label || bd.id || "?").charAt(0).toUpperCase()) + "</span>";
+    }).join("");
+  }
+
+  function hide() {
+    if (!current) return;
+    var c = current;
+    current = null;
+    clearTimeout(c.timer);
+    c.el.classList.remove("in");
+    c.el.classList.add("out");
+    setTimeout(function () { if (c.el.parentNode) c.el.parentNode.removeChild(c.el); }, 480);
+  }
+
+  function show(h) {
+    if (!h || !h.message) return hide();
+    var dur = Math.max(0, Number(s.durationSec) || 0) * 1000;
+    // Old highlight (overlay reloaded after it ended): ignore.
+    if (dur && h.at && Date.now() - h.at > dur) return;
+    if (current && current.id === h.message.id + ":" + h.at) return;
+    hide();
+    var m = h.message;
+    var el = document.createElement("div");
+    var anim = ["slide", "pop", "fade"].indexOf(s.animation) >= 0 ? s.animation : "slide";
+    el.className = "card in anim-" + anim;
+    el.innerHTML =
+      '<div class="who"><span class="vx-icon">' + V.icon(m.platform) + '</span><span class="badges">' + badges(m.user && m.user.badges) + "</span><b>" +
+      V.escapeHtml((m.user && m.user.name) || "") + "</b></div>" +
+      '<div class="text">' + V.escapeHtml(m.text || "") + "</div>" +
+      (dur ? '<div class="timer" style="animation: shrink ' + dur + 'ms linear both"></div>' : "");
+    stage.appendChild(el);
+    var left = dur ? Math.max(500, dur - (h.at ? Math.max(0, Date.now() - h.at) : 0)) : 0;
+    current = { id: m.id + ":" + h.at, el: el, timer: left ? setTimeout(hide, left) : 0 };
+  }
+
+  V.on("chat_highlight", show);
+  V.on("chat_deleted", function (d) {
+    if (current && d && current.id.indexOf(d.id + ":") === 0) hide();
+  });
+  V.on("state", function () {
+    var key = JSON.stringify(V.settings("highlight"));
+    if (key !== lastKey) {
+      lastKey = key;
+      apply();
+    }
+  });
+  apply();
+
+  if (V.isDemo) {
+    var sample = [
+      ["Luna", "¡Qué jugada más buena! Llevo toda la semana esperando este directo 🔥", "twitch", [{ id: "subscriber", label: "Suscriptor" }]],
+      ["PixelKnight", "¿Vas a jugar el modo historia después? Me encantaría verlo", "youtube", [{ id: "member", label: "Miembro" }]],
+      ["Sofi_gg", "Saludos desde Buenos Aires, ¡sois los mejores!", "kick", []]
+    ];
+    var i = 0;
+    (function next() {
+      var x = sample[i++ % sample.length];
+      show({ at: Date.now(), message: { id: "demo" + i, platform: x[2], user: { id: x[0], name: x[0], badges: x[3] }, text: x[1] } });
+      setTimeout(next, 6500);
+    })();
+  } else {
+    // A highlight already on screen when the overlay (re)loads.
+    fetch(V.url("/api/v1/chat/highlight")).then(function (r) { return r.ok ? r.json() : null; }).then(show).catch(function () {});
+  }
+})();
+</script>
+</body>
+</html>

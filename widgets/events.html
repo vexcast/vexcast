@@ -1,0 +1,382 @@
+<!doctype html>
+<!-- Vexcast recent events widget. SPDX-License-Identifier: GPL-3.0-or-later -->
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<title>Vexcast · Eventos recientes</title>
+<link rel="stylesheet" href="shared/widget.css">
+<style>
+  :root { --fs: 18px; --text: #fff; --font: inherit; --item-bg: rgba(26, 24, 40, 0.7); --item-bg2: rgba(14, 14, 24, 0.6); --radius: 0.8em; --c1: #7c5cff; --c2: #22d3ee; }
+
+  html, body { background: transparent; }
+  body { font-size: var(--fs); color: var(--text); font-family: var(--font); }
+
+  /* ---------------- list layout ---------------- */
+  #list {
+    position: fixed;
+    inset: 0;
+    padding: 0.7em;
+    display: flex;
+    flex-direction: column;
+    gap: 0.4em;
+    overflow: hidden;
+  }
+  .header {
+    display: flex;
+    align-items: center;
+    gap: 0.5em;
+    margin: 0 0 0.15em 0.15em;
+    font-size: 0.78em;
+    font-weight: 800;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--text);
+    opacity: 0.9;
+    text-shadow: var(--vx-outline);
+  }
+  .header::before {
+    content: "";
+    width: 0.55em;
+    height: 0.55em;
+    border-radius: 50%;
+    background: var(--c1);
+    box-shadow: 0 0 0 0.2em color-mix(in srgb, var(--c1) 30%, transparent);
+    animation: live 1.6s ease-in-out infinite;
+  }
+  .empty {
+    padding: 0.7em 0.9em;
+    border-radius: 0.7em;
+    background: rgba(16, 16, 26, 0.55);
+    color: rgba(255, 255, 255, 0.6);
+    font-weight: 600;
+    font-size: 0.9em;
+  }
+
+  .item {
+    display: flex;
+    align-items: center;
+    gap: 0.65em;
+    padding: 0.45em 0.8em 0.45em 0.45em;
+    border-radius: var(--radius);
+    background: linear-gradient(135deg, var(--item-bg), var(--item-bg2));
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    box-shadow: 0 0.25em 0.8em rgba(0, 0, 0, 0.25);
+    flex: none;
+    min-width: 0;
+  }
+  #list .item.new { animation: itemIn 0.6s var(--vx-ease-out) both; }
+  #list .item.new .chip { animation: chipPop 0.7s var(--vx-ease-spring) 0.1s both; }
+  .fade-old #list .item:nth-child(n + 8) { opacity: 0.75; }
+  .fade-old #list .item:nth-child(n + 10) { opacity: 0.5; }
+  .theme-minimal #ticker { background: none; border: 0; }
+  .theme-solid .item { background: var(--item-bg); -webkit-backdrop-filter: none; backdrop-filter: none; box-shadow: none; }
+  .theme-minimal .item, .theme-minimal .empty { background: none; border-color: transparent; box-shadow: none; -webkit-backdrop-filter: none; backdrop-filter: none; padding-left: 0; }
+  .theme-minimal .what, .theme-minimal .ago { text-shadow: var(--vx-outline); }
+  .no-icons .chip { display: none; }
+  .no-icons .item { padding-left: 0.8em; }
+  .no-platform .who .vx-icon { display: none; }
+  .no-time .ago { display: none; }
+
+  .chip {
+    flex: none;
+    width: 1.9em;
+    height: 1.9em;
+    border-radius: 0.55em;
+    display: grid;
+    place-items: center;
+    background: var(--tc);
+    box-shadow: 0 0.15em 0.5em rgba(0, 0, 0, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.3);
+  }
+  .chip svg { width: 62%; height: 62%; fill: #fff; }
+  .chip svg .d { fill: rgba(0, 0, 0, 0.35); }
+  .chip svg .s { fill: none; stroke: #fff; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+  .chip svg .ds { fill: none; stroke: rgba(0, 0, 0, 0.35); stroke-width: 1.3; }
+
+  .body { min-width: 0; flex: 1; line-height: 1.2; }
+  .who {
+    display: flex;
+    align-items: center;
+    gap: 0.35em;
+    font-weight: 800;
+    text-shadow: var(--vx-outline);
+    white-space: nowrap;
+    overflow: hidden;
+  }
+  .who .user { overflow: hidden; text-overflow: ellipsis; }
+  .who .vx-icon { font-size: 0.85em; }
+  .what {
+    font-size: 0.82em;
+    color: var(--text);
+    opacity: 0.75;
+    font-weight: 600;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .what b { color: var(--tcl, #fff); font-weight: 800; }
+  .ago {
+    flex: none;
+    font-size: 0.72em;
+    font-weight: 600;
+    color: rgba(255, 255, 255, 0.5);
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* ---------------- ticker layout ---------------- */
+  #ticker {
+    position: fixed;
+    left: 0;
+    right: 0;
+    top: 50%;
+    transform: translateY(-50%);
+    display: flex;
+    align-items: center;
+    height: 2.9em;
+    background: linear-gradient(180deg, var(--item-bg), var(--item-bg2));
+    border-top: 1px solid rgba(255, 255, 255, 0.1);
+    border-bottom: 1px solid rgba(0, 0, 0, 0.4);
+    overflow: hidden;
+  }
+  #ticker .label {
+    position: relative;
+    z-index: 2;
+    flex: none;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    gap: 0.5em;
+    padding: 0 1em 0 0.9em;
+    background: linear-gradient(135deg, var(--c1), var(--c2));
+    font-weight: 850;
+    font-size: 0.8em;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.35);
+    box-shadow: 0.4em 0 1.2em rgba(0, 0, 0, 0.45);
+  }
+  #ticker .viewport {
+    flex: 1;
+    overflow: hidden;
+    -webkit-mask-image: linear-gradient(90deg, transparent, #000 3%, #000 97%, transparent);
+    mask-image: linear-gradient(90deg, transparent, #000 3%, #000 97%, transparent);
+  }
+  #ticker .track {
+    display: flex;
+    width: max-content;
+    animation: marquee var(--dur, 30s) linear infinite;
+  }
+  #ticker .item {
+    background: none;
+    border: 0;
+    box-shadow: none;
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+    padding: 0 1.4em 0 0;
+    border-radius: 0;
+  }
+  #ticker .item .chip { width: 1.6em; height: 1.6em; }
+  #ticker .item .body { display: flex; align-items: baseline; gap: 0.45em; }
+  #ticker .item .what { font-size: 0.9em; }
+  #ticker .item::after {
+    content: "";
+    width: 0.3em;
+    height: 0.3em;
+    margin-left: 1.4em;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.3);
+  }
+  #ticker .ago { display: none; }
+
+  @keyframes itemIn {
+    from { opacity: 0; transform: translate3d(-1.2em, 0, 0) scale(0.96); }
+    to { opacity: 1; transform: none; }
+  }
+  @keyframes chipPop {
+    0% { transform: scale(0.2) rotate(-30deg); }
+    100% { transform: none; }
+  }
+  @keyframes live {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.35; }
+  }
+  @keyframes marquee { to { transform: translate3d(-50%, 0, 0); } }
+</style>
+</head>
+<body>
+<div id="list" hidden></div>
+<div id="ticker" hidden><div class="label"></div><div class="viewport"><div class="track"></div></div></div>
+
+<script src="shared/widget.js"></script>
+<script>
+(function () {
+  "use strict";
+  var V = window.Vexcast;
+  var cfg = {};
+  var layout = "";
+  var max = 10;
+  var types = [];
+  // Old overlay URLs (?max= ?title= ?types=) still win over the settings.
+  var pMax = V.param("max", "");
+  var pTitle = V.param("title", "");
+  var pTypes = V.param("types", "");
+
+  function readCfg() {
+    cfg = V.settings("events");
+    max = Math.max(1, Math.min(50, parseInt(pMax || cfg.maxEvents, 10) || 10));
+    types = pTypes ? pTypes.split(",").filter(Boolean) : (Array.isArray(cfg.types) ? cfg.types : []);
+    if (pTitle) cfg.showTitle = !/^(0|false|no)$/i.test(pTitle);
+    var r = document.documentElement;
+    r.style.setProperty("--fs", Math.max(10, Number(cfg.fontSize) || 18) + "px");
+    r.style.setProperty("--text", /^#[0-9a-f]{3,8}$/i.test(cfg.textColor) ? cfg.textColor : "#fff");
+    r.style.setProperty("--font", V.fontStack(cfg.fontFamily) || "inherit");
+    V.loadFont(cfg.fontFamily);
+    var op = cfg.bgOpacity === undefined ? 0.7 : Number(cfg.bgOpacity);
+    r.style.setProperty("--item-bg", V.rgba(cfg.bgColor || "#1a1828", op));
+    r.style.setProperty("--item-bg2", V.rgba(cfg.bgColor || "#1a1828", op * 0.85));
+    r.style.setProperty("--radius", Math.max(0, Number(cfg.radius) || 0) + "em");
+    if (/^#[0-9a-f]{3,8}$/i.test(cfg.color)) r.style.setProperty("--c1", cfg.color);
+    if (/^#[0-9a-f]{3,8}$/i.test(cfg.color2)) r.style.setProperty("--c2", cfg.color2);
+    var b = document.body.classList;
+    ["glass", "solid", "minimal"].forEach(function (t) { b.toggle("theme-" + t, (cfg.theme || "glass") === t); });
+    b.toggle("fade-old", cfg.fadeOld !== false);
+    b.toggle("no-icons", cfg.showIcons === false);
+    b.toggle("no-platform", cfg.showPlatform === false);
+    b.toggle("no-time", cfg.showTime === false);
+    var nl = cfg.layout === "ticker" ? "ticker" : "list";
+    if (nl !== layout) {
+      layout = nl;
+      listEl.hidden = layout !== "list";
+      tickerEl.hidden = layout !== "ticker";
+    }
+  }
+  function titleText() {
+    return V.param("titleText", "") || cfg.titleText || V.t("recentEvents");
+  }
+
+  var events = [];
+  var listEl = document.getElementById("list");
+  var tickerEl = document.getElementById("ticker");
+  var track = tickerEl.querySelector(".track");
+
+  function lighten(hex) {
+    var m = /^#?([0-9a-f]{6})$/i.exec(hex);
+    if (!m) return "#fff";
+    var n = parseInt(m[1], 16);
+    var c = [n >> 16, (n >> 8) & 255, n & 255].map(function (v) { return Math.round(v + (255 - v) * 0.45); });
+    return "rgb(" + c.join(",") + ")";
+  }
+
+  function amountText(ev) {
+    if (ev.amount === null || ev.amount === undefined) return "";
+    return V.isMoneyAlert(ev.type) ? V.formatMoney(ev.amount, ev.currency) : V.formatNumber(ev.amount, 2);
+  }
+
+  function describe(ev) {
+    var amt = amountText(ev);
+    var s = V.escapeHtml(V.t("short." + ev.type));
+    if (ev.type === "subscription" && ev.amount > 1) s += " · " + V.escapeHtml(V.t("months", { amount: V.formatNumber(ev.amount) }));
+    return s.replace("{amount}", amt ? "<b>" + V.escapeHtml(amt) + "</b>" : "").replace(/\s{2,}/g, " ");
+  }
+
+  function ago(ts) {
+    var d = Math.max(0, Date.now() - (ts || Date.now()));
+    var m = Math.floor(d / 60000);
+    if (m < 1) return V.t("now");
+    if (m < 60) return V.t("minAgo", { n: m });
+    return V.t("hAgo", { n: Math.floor(m / 60) });
+  }
+
+  function itemHtml(ev, isNew) {
+    var c = V.typeColor(ev.type);
+    return '<div class="item' + (isNew ? " new" : "") + '" style="--tc:' + c + ";--tcl:" + lighten(c) + '">' +
+      '<div class="chip"><svg viewBox="0 0 24 24" aria-hidden="true">' + V.glyph(ev.type) + "</svg></div>" +
+      '<div class="body"><div class="who"><span class="vx-icon">' + V.icon(ev.platform) + '</span><span class="user">' +
+      V.escapeHtml(ev.user || "Anónimo") + "</span></div>" +
+      '<div class="what">' + describe(ev) + "</div></div>" +
+      '<div class="ago" data-ts="' + (ev.ts || Date.now()) + '">' + ago(ev.ts) + "</div></div>";
+  }
+
+  function renderList(newId) {
+    var html = cfg.showTitle !== false ? '<div class="header">' + V.escapeHtml(titleText()) + "</div>" : "";
+    if (!events.length) html += '<div class="empty">' + V.escapeHtml(V.t("noEvents")) + "</div>";
+    for (var i = 0; i < events.length; i++) html += itemHtml(events[i], events[i].id === newId);
+    listEl.innerHTML = html;
+  }
+
+  function renderTicker() {
+    var label = tickerEl.querySelector(".label");
+    label.textContent = titleText();
+    label.hidden = cfg.showTitle === false;
+    var items = events.length ? events.map(function (e) { return itemHtml(e, false); }).join("") :
+      '<div class="item"><div class="what">' + V.escapeHtml(V.t("noEvents")) + "</div></div>";
+    // Repeat until one half is wider than the viewport, then duplicate for a seamless loop.
+    track.innerHTML = items;
+    var vw = tickerEl.querySelector(".viewport").clientWidth || window.innerWidth;
+    var half = items;
+    var guard = 0;
+    while (track.scrollWidth < vw && guard++ < 20) { half += items; track.innerHTML = half; }
+    track.innerHTML = half + half;
+    var speed = Math.max(10, Number(cfg.speed) || 90); // px per second
+    track.style.setProperty("--dur", Math.max(8, track.scrollWidth / 2 / speed) + "s");
+  }
+
+  function visible() {
+    return types.length ? all.filter(function (e) { return types.indexOf(e.type) !== -1; }) : all;
+  }
+  function render(newId) {
+    events = visible().slice(0, max);
+    if (layout === "list") renderList(newId);
+    else renderTicker();
+  }
+
+  // Every event received (newest first); "events" is what is shown after filters.
+  var all = [];
+  function push(ev, animate) {
+    if (!ev || !ev.type) return;
+    for (var i = 0; i < all.length; i++) if (all[i].id === ev.id) return;
+    all.unshift(ev);
+    if (all.length > 60) all.length = 60;
+    if (types.length && types.indexOf(ev.type) === -1) return;
+    render(animate ? ev.id : null);
+  }
+
+  V.on("alert", function (ev) { push(ev, true); });
+  var lastLang = V.lang();
+  var lastKey = "";
+  V.on("state", function () {
+    readCfg();
+    var key = JSON.stringify(cfg) + V.lang();
+    if (key !== lastKey || V.lang() !== lastLang) {
+      lastKey = key;
+      lastLang = V.lang();
+      render(null);
+    }
+  });
+
+  setInterval(function () {
+    var nodes = document.querySelectorAll(".ago[data-ts]");
+    for (var i = 0; i < nodes.length; i++) nodes[i].textContent = ago(+nodes[i].getAttribute("data-ts"));
+  }, 30000);
+
+  readCfg();
+  // Demo: seed a few past events so the list is not empty.
+  if (V.isDemo) {
+    var seed = ["follow", "bits", "subscription", "kofi", "raid", "donation", "superchat", "member"];
+    for (var k = 0; k < seed.length; k++) {
+      var e = V.demo.makeAlert(seed[k]);
+      e.ts = Date.now() - (seed.length - k) * 4 * 60000;
+      all.unshift(e);
+    }
+  } else if (cfg.keepHistory !== false) {
+    // Survive overlay reloads: start from the latest events the core remembers.
+    fetch(V.url("/api/v1/alerts/recent")).then(function (r) { return r.ok ? r.json() : []; }).then(function (list) {
+      (Array.isArray(list) ? list : []).slice().sort(function (a, b) { return (a.ts || 0) - (b.ts || 0); }).forEach(function (ev) { push(ev, false); });
+    }).catch(function () {});
+  }
+  render(null);
+})();
+</script>
+</body>
+</html>
