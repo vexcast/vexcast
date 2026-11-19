@@ -1,41 +1,41 @@
-# Cuentas: «Conectar con Twitch / Kick / YouTube»
+# Accounts: "Connect with Twitch / Kick / YouTube"
 
-Para que los botones de inicio de sesión funcionen, el proyecto necesita **una app registrada en cada plataforma**. Se hace una sola vez, con la cuenta del dueño del proyecto, y los IDs públicos se ponen en [`crates/vexcast-core/src/oauth_config.rs`](../crates/vexcast-core/src/oauth_config.rs). También se pueden pasar con variables de entorno del mismo nombre: `VEXCAST_TWITCH_CLIENT_ID`, etc.
+For the sign-in buttons to work, the project needs **an app registered on each platform**. This is done once, with the project owner's account, and the public IDs go in [`crates/vexcast-core/src/oauth_config.rs`](../crates/vexcast-core/src/oauth_config.rs). They can also be passed as environment variables with the same name: `VEXCAST_TWITCH_CLIENT_ID`, etc.
 
-## Twitch (solo el Client ID, sin secreto)
+## Twitch (Client ID only, no secret)
 
-1. Activa la verificación en dos pasos en tu cuenta de Twitch; es obligatoria para registrar apps.
-2. Entra en **https://dev.twitch.tv/console/apps** y pulsa **Register Your Application**.
-3. Rellena:
-   - **Name**: `Vexcast` (si está ocupado, `Vexcast Studio`).
+1. Enable two-factor authentication on your Twitch account; it's required to register apps.
+2. Go to **https://dev.twitch.tv/console/apps** and click **Register Your Application**.
+3. Fill in:
+   - **Name**: `Vexcast` (if taken, `Vexcast Studio`).
    - **OAuth Redirect URLs**: `http://localhost:7420/oauth/callback`
    - **Category**: *Broadcaster Suite*
-   - **Client Type**: **Public**. Así no hace falta secreto: Vexcast usa el *Device Code Flow*.
-4. Pulsa **Create**, luego **Manage**, y copia el **Client ID**.
-5. Pégalo en `TWITCH_CLIENT_ID`.
+   - **Client Type**: **Public**. This way no secret is needed: Vexcast uses the *Device Code Flow*.
+4. Click **Create**, then **Manage**, and copy the **Client ID**.
+5. Paste it into `TWITCH_CLIENT_ID`.
 
-Con la cuenta conectada, Vexcast puede rellenar la clave de transmisión, usar el chat con permiso de escritura, cambiar el título y la categoría y leer follows, subs y bits.
+With the account connected, Vexcast can fill in the stream key, use chat with write permission, change the title and category, and read follows, subs and bits.
 
-## Kick (Client ID + secreto mediante un mini proxy)
+## Kick (Client ID + secret via a small proxy)
 
-1. En Kick ve a **Configuración → Developer** (**https://kick.com/settings/developer**) y crea una app.
-2. Rellena:
+1. On Kick, go to **Settings → Developer** (**https://kick.com/settings/developer**) and create an app.
+2. Fill in:
    - **Redirect URL**: `http://localhost:7420/oauth/callback`
    - **Scopes**: `user:read`, `channel:read`, `channel:write`, `chat:write`, `streamkey:read`, `events:subscribe`.
-3. Copia el **Client ID** en `KICK_CLIENT_ID`.
-4. El **Client Secret** **no** se pone en el código. Despliega el proxy gratuito [`scripts/kick-token-proxy.js`](../scripts/kick-token-proxy.js) en Cloudflare Workers (las instrucciones están en el propio archivo) y pon su URL en `KICK_TOKEN_PROXY` (`oauth_config.rs`). Vexcast usa siempre esa dirección; no se configura con variables de entorno.
-   - En compilaciones solo tuyas también puedes definir la variable `VEXCAST_KICK_CLIENT_SECRET`, sin proxy.
+3. Copy the **Client ID** into `KICK_CLIENT_ID`.
+4. The **Client Secret** does **not** go in the code. Deploy the free proxy [`scripts/kick-token-proxy.js`](../scripts/kick-token-proxy.js) to Cloudflare Workers (instructions are in the file itself) and put its URL in `KICK_TOKEN_PROXY` (`oauth_config.rs`). Vexcast always uses that address; it isn't configurable through environment variables.
+   - For builds that only you use, you can also set the `VEXCAST_KICK_CLIENT_SECRET` variable, without a proxy.
 
-## YouTube (Client ID + secreto «de escritorio»)
+## YouTube (Client ID + "desktop" secret)
 
-> De momento el botón «Conectar con YouTube» está oculto en la interfaz (`ACCOUNT_PLATFORMS` en `apps/desktop/src/components/accounts/connect-button.tsx`) porque Google exige verificar la app. El núcleo ya lo soporta; para activarlo, configura lo siguiente y vuelve a añadir `"youtube"` a esa lista.
+> For now the "Connect with YouTube" button is hidden in the UI (`ACCOUNT_PLATFORMS` in `apps/desktop/src/components/accounts/connect-button.tsx`) because Google requires the app to be verified. The core already supports it; to enable it, configure the following and add `"youtube"` back to that list.
 
-1. Entra en **https://console.cloud.google.com/** y crea un proyecto llamado «Vexcast».
-2. **APIs y servicios → Biblioteca**: activa **YouTube Data API v3**.
-3. **Pantalla de consentimiento de OAuth**: elige el tipo *Externo*, pon el nombre de la app, tu correo y el scope `.../auth/youtube.force-ssl`. Mientras esté «en pruebas», añade como *usuarios de prueba* las cuentas que la usarán. Para abrirla a todos, Google pide una verificación gratuita.
-4. **Credenciales → Crear credenciales → ID de cliente de OAuth → App de escritorio**.
-5. Copia el **ID de cliente** en `YOUTUBE_CLIENT_ID` y el **secreto** en `YOUTUBE_CLIENT_SECRET`. Google considera no confidencial el secreto de las apps de escritorio, así que puede ir en la app.
+1. Go to **https://console.cloud.google.com/** and create a project named "Vexcast".
+2. **APIs & Services → Library**: enable **YouTube Data API v3**.
+3. **OAuth consent screen**: choose the *External* type, and enter the app name, your email and the `.../auth/youtube.force-ssl` scope. While it's "in testing", add the accounts that will use it as *test users*. To open it to everyone, Google requires a free verification.
+4. **Credentials → Create credentials → OAuth client ID → Desktop app**.
+5. Copy the **client ID** into `YOUTUBE_CLIENT_ID` and the **secret** into `YOUTUBE_CLIENT_SECRET`. Google doesn't consider desktop app secrets confidential, so it can ship inside the app.
 
-## Publicar sin dejar las claves en el código
+## Releasing without keeping the keys in the code
 
-En vez de editar `oauth_config.rs`, define en GitHub (**Settings → Secrets and variables → Actions → Variables**) `VEXCAST_TWITCH_CLIENT_ID`, `VEXCAST_KICK_CLIENT_ID`, `VEXCAST_YOUTUBE_CLIENT_ID` y `VEXCAST_YOUTUBE_CLIENT_SECRET`. El workflow de publicación los inyecta al compilar.
+Instead of editing `oauth_config.rs`, define `VEXCAST_TWITCH_CLIENT_ID`, `VEXCAST_KICK_CLIENT_ID`, `VEXCAST_YOUTUBE_CLIENT_ID` and `VEXCAST_YOUTUBE_CLIENT_SECRET` on GitHub (**Settings → Secrets and variables → Actions → Variables**). The release workflow injects them at build time.

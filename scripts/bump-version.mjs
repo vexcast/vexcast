@@ -4,14 +4,14 @@ import { readFileSync, writeFileSync } from "node:fs";
 
 const version = process.argv[2];
 if (!/^\d+\.\d+\.\d+(-[\w.]+)?$/.test(version ?? "")) {
-  console.error("Uso: node scripts/bump-version.mjs X.Y.Z");
+  console.error("Usage: node scripts/bump-version.mjs X.Y.Z");
   process.exit(1);
 }
 
 const edit = (file, fn) => {
   const before = readFileSync(file, "utf8");
   const after = fn(before);
-  if (before === after) console.warn(`(sin cambios) ${file}`);
+  if (before === after) console.warn(`(unchanged) ${file}`);
   writeFileSync(file, after);
   console.log(`✔ ${file}`);
 };
@@ -23,4 +23,4 @@ for (const f of ["apps/desktop/package.json", "apps/mobile/package.json", "packa
 const tauriCargo = "apps/desktop/src-tauri/Cargo.toml";
 edit(tauriCargo, (s) => (s.includes("version.workspace") ? s : s.replace(/^(version\s*=\s*")[^"]+(")/m, `$1${version}$2`)));
 
-console.log(`\nVersión ${version}. Ahora:\n  cargo check -p vexcast-core\n  git commit -am "Release v${version}"\n  git tag v${version} && git push && git push --tags`);
+console.log(`\nVersion ${version}. Next:\n  cargo check -p vexcast-core\n  git commit -am "Release v${version}"\n  git tag v${version} && git push && git push --tags`);

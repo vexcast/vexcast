@@ -1,55 +1,55 @@
-# Publicar una versión
+# Releasing a version
 
-Las versiones se construyen y publican solas con GitHub Actions (`.github/workflows/release.yml`).
+Releases are built and published automatically by GitHub Actions (`.github/workflows/release.yml`).
 
-## Configuración única: clave del actualizador
+## One-time setup: updater key
 
-El actualizador integrado solo instala paquetes **firmados** con la clave del proyecto. La clave pública ya está en `apps/desktop/src-tauri/tauri.conf.json`. La privada **no** se sube al repositorio:
+The built-in updater only installs packages **signed** with the project key. The public key is already in `apps/desktop/src-tauri/tauri.conf.json`. The private key is **not** committed to the repository:
 
 1. GitHub → **Settings → Secrets and variables → Actions → New repository secret**.
-2. Crea `TAURI_SIGNING_PRIVATE_KEY` con el contenido completo del archivo de clave privada.
-3. Crea `TAURI_SIGNING_PRIVATE_KEY_PASSWORD` con su contraseña. Si no tiene contraseña, déjalo vacío (o no lo crees).
+2. Create `TAURI_SIGNING_PRIVATE_KEY` with the full contents of the private key file.
+3. Create `TAURI_SIGNING_PRIVATE_KEY_PASSWORD` with its password. If it has no password, leave it empty (or don't create it).
 
-> ⚠️ Guarda una copia de la clave privada en un lugar seguro (gestor de contraseñas). Si se pierde, las instalaciones existentes no podrán actualizarse automáticamente a versiones firmadas con otra clave.
+> ⚠️ Keep a copy of the private key somewhere safe (a password manager). If it's lost, existing installs won't be able to auto-update to versions signed with a different key.
 
-Para generar una clave nueva:
+To generate a new key:
 
 ```bash
 pnpm --filter @vexcast/desktop tauri signer generate -w vexcast-updater.key
 ```
 
-Después reemplaza `plugins.updater.pubkey` en `tauri.conf.json` con el contenido de `vexcast-updater.key.pub`.
+Then replace `plugins.updater.pubkey` in `tauri.conf.json` with the contents of `vexcast-updater.key.pub`.
 
-## Cada versión
+## Every release
 
-Sube la versión en todos los paquetes:
+Bump the version in all packages:
 
 ```bash
 node scripts/bump-version.mjs 0.2.0
 ```
 
-Haz el commit:
+Commit:
 
 ```bash
 git commit -am "Release v0.2.0"
 ```
 
-Crea la etiqueta:
+Create the tag:
 
 ```bash
 git tag v0.2.0
 ```
 
-Sube el commit y la etiqueta:
+Push the commit and the tag:
 
 ```bash
 git push && git push --tags
 ```
 
-El workflow:
-1. Crea un release en borrador.
-2. Compila los instaladores de **Windows** (con FFmpeg incluido), **macOS** (Apple Silicon e Intel) y **Linux** (AppImage, deb y rpm), firma los paquetes de actualización y sube `latest.json`.
-3. Compila el **APK de Android** de la app de control remoto y el **servidor sin interfaz** para cada sistema.
-4. Publica el release.
+The workflow:
+1. Creates a draft release.
+2. Builds the installers for **Windows** (with FFmpeg bundled), **macOS** (Apple Silicon and Intel) and **Linux** (AppImage, deb and rpm), signs the update packages and uploads `latest.json`.
+3. Builds the **Android APK** of the remote control app and the **headless server** for each OS.
+4. Publishes the release.
 
-Las apps instaladas comprueban `https://github.com/vexcast/vexcast/releases/latest/download/latest.json` al arrancar y cada 6 horas. La app móvil consulta la API de releases una vez al día.
+Installed apps check `https://github.com/vexcast/vexcast/releases/latest/download/latest.json` on startup and every 6 hours. The mobile app queries the releases API once a day.

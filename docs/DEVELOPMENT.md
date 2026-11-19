@@ -1,46 +1,46 @@
-# Desarrollo
+# Development
 
-Vexcast usa **libobs**, el núcleo de OBS Studio, como motor de video y audio. El núcleo en Rust (`crates/vexcast-core`) enlaza con libobs 32.1 y necesita el **runtime de OBS** (DLLs, plugins y datos) junto al ejecutable.
+Vexcast uses **libobs**, the core of OBS Studio, as its video and audio engine. The Rust core (`crates/vexcast-core`) links against libobs 32.1 and needs the **OBS runtime** (DLLs, plugins and data) next to the executable.
 
-## Requisitos (Windows)
+## Requirements (Windows)
 
-- [Rust](https://rustup.rs) estable, con Visual Studio Build Tools (C++).
-- Node 22+ y [pnpm](https://pnpm.io) 10.
-- FFmpeg solo para el test end-to-end (`winget install Gyan.FFmpeg`).
+- Stable [Rust](https://rustup.rs), with Visual Studio Build Tools (C++).
+- Node 22+ and [pnpm](https://pnpm.io) 10.
+- FFmpeg, only for the end-to-end test (`winget install Gyan.FFmpeg`).
 
-## Primer arranque
+## First run
 
-Instala las dependencias de JavaScript:
+Install the JavaScript dependencies:
 
 ```bash
 pnpm install
 ```
 
-Descarga el runtime oficial de OBS 32.1.2 en `target/debug` y `target/release`:
+Download the official OBS 32.1.2 runtime into `target/debug` and `target/release`:
 
 ```bash
 node scripts/fetch-obs-runtime.mjs
 ```
 
-Arranca la app de escritorio:
+Start the desktop app:
 
 ```bash
 pnpm tauri dev
 ```
 
-O bien solo el núcleo con la interfaz web (abre `http://localhost:7499/app/`). Primero compila la interfaz:
+Or run just the core with the web UI (open `http://localhost:7499/app/`). First build the UI:
 
 ```bash
 pnpm build:ui
 ```
 
-Y luego arranca el servidor:
+Then start the server:
 
 ```bash
 cargo run -p vexcast-server -- --port 7499 --ui-dir apps/desktop/dist
 ```
 
-Para trabajar en la interfaz sin compilar Rust, usa el núcleo simulado:
+To work on the UI without building Rust, use the mock core:
 
 ```bash
 pnpm --filter @vexcast/mock-core start
@@ -52,49 +52,49 @@ pnpm dev
 
 ## Tests
 
-Pruebas unitarias del núcleo:
+Core unit tests:
 
 ```bash
 cargo test -p vexcast-core
 ```
 
-Test end-to-end con libobs real: transmite a un RTMP local, graba y verifica. Necesita el runtime y FFmpeg:
+End-to-end test with real libobs: streams to a local RTMP server, records and verifies. Requires the runtime and FFmpeg:
 
 ```bash
 cargo test -p vexcast-server --test e2e
 ```
 
-Pruebas sin el motor (Linux, macOS, CI):
+Tests without the engine (Linux, macOS, CI):
 
 ```bash
 cargo test -p vexcast-core --no-default-features
 ```
 
-Tipos de la interfaz y de la app móvil:
+Type checking for the UI and the mobile app:
 
 ```bash
 pnpm typecheck
 ```
 
-## Arquitectura del motor
+## Engine architecture
 
 `crates/vexcast-core/src/obs/`:
 
-| Archivo | Qué hace |
+| File | What it does |
 |---|---|
-| `runtime.rs` | Arranca libobs, rutas de plugins, `obs_reset_video/audio`, cola de tareas de UI |
-| `snapshot.rs` | Lee escenas, elementos (transformaciones de OBS), fuentes, filtros y transiciones |
-| `ops.rs` | Mutaciones: escenas, elementos, fuentes, filtros, transiciones y audio global |
-| `props.rs` | Convierte las `obs_properties` en el esquema genérico `Property` que pinta la interfaz |
-| `catalog.rs` | Tipos de fuente/filtro/transición, codificadores, servicios (rtmp-services), dispositivos |
-| `outputs.rs` | Multistream (codificador compartido), grabación, búfer de repetición, cámara virtual, estadísticas |
-| `preview.rs` | Fotogramas escalados por la GPU → JPEG (programa, escena o fuente) |
-| `audio.rs` | Volmetros por canal, reproductor de efectos (TTS y sonidos de alertas), capturas de audio |
-| `collection.rs` | Colecciones de escenas en el formato de OBS e importación desde OBS Studio |
-| `hotkeys.rs` | Atajos globales del frontend y de las fuentes |
+| `runtime.rs` | Starts libobs, plugin paths, `obs_reset_video/audio`, UI task queue |
+| `snapshot.rs` | Reads scenes, items (OBS transforms), sources, filters and transitions |
+| `ops.rs` | Mutations: scenes, items, sources, filters, transitions and global audio |
+| `props.rs` | Converts `obs_properties` into the generic `Property` schema the UI renders |
+| `catalog.rs` | Source/filter/transition types, encoders, services (rtmp-services), devices |
+| `outputs.rs` | Multistream (shared encoder), recording, replay buffer, virtual camera, stats |
+| `preview.rs` | GPU-scaled frames → JPEG (program, scene or source) |
+| `audio.rs` | Per-channel volume meters, effects player (TTS and alert sounds), audio captures |
+| `collection.rs` | Scene collections in OBS format and import from OBS Studio |
+| `hotkeys.rs` | Global frontend and source hotkeys |
 
-Las colecciones se guardan en `%APPDATA%\vexcast\scenes\*.json` con el mismo formato que OBS Studio, así que se pueden importar las de OBS directamente.
+Collections are stored in `%APPDATA%\vexcast\scenes\*.json` in the same format as OBS Studio, so OBS collections can be imported directly.
 
-## macOS y Linux
+## macOS and Linux
 
-El motor compila contra libobs mediante `pkg-config` (Linux) o el framework de OBS (macOS). Aún no hay paquetes publicados para estas plataformas. Sin libobs, compila con `--no-default-features`: la API, el chat, las alertas y la IA funcionan, pero el motor de video aparece como no disponible.
+The engine builds against libobs via `pkg-config` (Linux) or the OBS framework (macOS). There are no published packages for these platforms yet. Without libobs, build with `--no-default-features`: the API, chat, alerts and AI work, but the video engine shows as unavailable.

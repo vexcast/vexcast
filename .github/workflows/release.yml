@@ -36,7 +36,7 @@ jobs:
           # Every 0.x version is a public beta.
           if [[ "$v" == 0.* ]]; then
             echo "suffix= (Beta)" >> "$GITHUB_OUTPUT"
-            echo "notice=> 🧪 **Versión beta**: Vexcast aún está en pruebas. Puede haber errores; repórtalos en https://github.com/vexcast/vexcast/issues. Las actualizaciones llegarán automáticamente desde la app." >> "$GITHUB_OUTPUT"
+            echo "notice=> 🧪 **Beta version**: Vexcast is still being tested. There may be bugs; please report them at https://github.com/vexcast/vexcast/issues. Updates arrive automatically from the app." >> "$GITHUB_OUTPUT"
           fi
       - id: release
         uses: softprops/action-gh-release@v2
@@ -48,14 +48,14 @@ jobs:
           body: |
             ${{ steps.version.outputs.notice }}
 
-            ## Descargas
-            - **Windows 10/11 (64 bits)**: `Vexcast_${{ steps.version.outputs.version }}_x64-setup.exe`. Incluye el motor de OBS Studio 32.1 (captura de pantalla, ventana y juegos, navegador, filtros, NVENC/AMF/QSV).
-            - **Android (control remoto)**: `vexcast-remote-${{ steps.version.outputs.version }}.apk`
-            - **Servidor sin interfaz (Windows)**: `vexcast-server-windows-x64.zip` — abre `http://localhost:7420/app/`
+            ## Downloads
+            - **Windows 10/11 (64-bit)**: `Vexcast_${{ steps.version.outputs.version }}_x64-setup.exe`. Includes the OBS Studio 32.1 engine (display, window and game capture, browser, filters, NVENC/AMF/QSV).
+            - **Android (remote control)**: `vexcast-remote-${{ steps.version.outputs.version }}.apk`
+            - **Headless server (Windows)**: `vexcast-server-windows-x64.zip` — open `http://localhost:7420/app/`
 
-            macOS y Linux llegarán más adelante.
+            macOS and Linux are coming later.
 
-            ☕ Vexcast es gratis y libre. Si te ayuda, puedes apoyar el proyecto en https://ko-fi.com/emanueldev
+            ☕ Vexcast is free and open source. If it helps you, you can support the project at https://ko-fi.com/emanueldev
 
   desktop-windows:
     needs: create-release
