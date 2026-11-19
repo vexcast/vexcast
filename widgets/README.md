@@ -195,3 +195,11 @@ To check transparency, put the page over a checkerboard. Almost every
 animation uses CSS `transform` and `opacity`, so it stays smooth at 60 fps.
 The two exceptions are the goal bar's width and the chat's row height, and
 both are small.
+
+## phonecam.html
+
+Receives the **Vexcast Remote phone camera** over the local network (WebRTC,
+signalled through `/api/v1/phonecam/ws`). The phone app creates this source
+by itself; the parameters are `id=<room>` (required), `fit=contain|cover`
+(default `contain`) and `muted=1` to ignore the phone's microphone. Transparent
+while the phone isn't sending.

@@ -178,6 +178,16 @@ export const liveEs = {
     viewerDesc: "Mira el estado, no cambia nada",
     saved: "Permisos actualizados",
   },
+  phoneCam: {
+    missing: "La cámara del móvil está emitiendo, pero «{scene}» no la tiene",
+    hidden: "La cámara del móvil está emitiendo, pero está oculta en «{scene}»",
+    add: "Añadir a la escena",
+    show: "Mostrarla",
+    added: "Cámara del móvil añadida a «{scene}»",
+    shown: "Cámara del móvil visible en «{scene}»",
+    dismiss: "Ahora no",
+    sourceName: "Cámara del móvil",
+  },
   guests: {
     title: "Invitados en directo",
     desc: "Invita a alguien con un enlace: abre el enlace en su navegador, comparte cámara y micrófono, y aparece en tu escena como una fuente más (con su audio en el mezclador).",

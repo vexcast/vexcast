@@ -29,6 +29,9 @@ export const DOCK_IDS: DockId[] = ["preview", "program", "previewVertical", "sce
 export type LayoutPreset = "classic" | "streamlabs" | "compact" | "dual" | "production";
 
 export type PreviewScaling = "window" | "canvas" | "output";
+/** Detail of the main previews: more = sharper and smoother, but more CPU/GPU. */
+export type PreviewQuality = "low" | "medium" | "high" | "full";
+export const PREVIEW_QUALITIES: PreviewQuality[] = ["low", "medium", "high", "full"];
 export type Page = "studio" | "chat" | "alerts" | "bot" | "ai" | "destinations" | "remote" | "reports";
 export const PAGES: Page[] = ["studio", "chat", "alerts", "bot", "ai", "destinations", "remote", "reports"];
 
@@ -55,6 +58,7 @@ export interface Prefs {
   snapToCenter: boolean;
   previewLocked: boolean;
   previewScaling: PreviewScaling;
+  previewQuality: PreviewQuality;
   previewEnabled: boolean;
   confirmStreamStart: boolean;
   /** Show the pre-stream checklist before going live. */
@@ -114,6 +118,7 @@ const DEFAULTS: Prefs = {
   snapToCenter: true,
   previewLocked: false,
   previewScaling: "window",
+  previewQuality: "medium",
   previewEnabled: true,
   confirmStreamStart: false,
   preflight: true,

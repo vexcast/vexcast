@@ -20,7 +20,7 @@ import {
 import { openDialog } from "@/lib/dialogs";
 import { fmt } from "@/lib/format";
 import { redo, undo, useHistory } from "@/lib/history";
-import { DOCK_IDS, goTo, type LayoutPreset, type PreviewScaling, usePrefs } from "@/lib/prefs";
+import { DOCK_IDS, goTo, type LayoutPreset, type PreviewQuality, type PreviewScaling, usePrefs } from "@/lib/prefs";
 import { applyPreset, deleteSavedLayout, loadSavedLayout, saveCurrentLayout } from "@/components/workspace/workspace";
 
 const PRESETS: LayoutPreset[] = ["classic", "streamlabs", "compact", "dual", "production"];
@@ -98,6 +98,23 @@ export function MenuBar() {
             { value: "window", label: t.menu.scaleWindow },
             { value: "canvas", label: fmt(t.menu.scaleCanvas, { w: video.baseWidth, h: video.baseHeight }) },
             { value: "output", label: fmt(t.menu.scaleOutput, { w: video.outputWidth, h: video.outputHeight }) },
+          ],
+        },
+      ],
+    },
+    {
+      type: "sub",
+      label: t.preview.qualityTitle,
+      children: [
+        {
+          type: "radio",
+          value: prefs.previewQuality,
+          onValueChange: (v) => prefs.set({ previewQuality: v as PreviewQuality }),
+          options: [
+            { value: "low", label: t.preview.qLow },
+            { value: "medium", label: t.preview.qMedium },
+            { value: "high", label: t.preview.qHigh },
+            { value: "full", label: t.preview.qFull },
           ],
         },
       ],

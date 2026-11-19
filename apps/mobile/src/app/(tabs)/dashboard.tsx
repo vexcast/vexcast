@@ -8,12 +8,14 @@ import { ConfirmSheet } from "@/components/ConfirmSheet";
 import { PlatformIcon, serviceToPlatform } from "@/components/PlatformIcon";
 import { PreviewImage } from "@/components/PreviewImage";
 import { Screen } from "@/components/Screen";
+import { PhoneCameraCard } from "@/components/PhoneCameraCard";
 import { StreamInfoCard } from "@/components/StreamInfoCard";
 import { Button, Card, Pill, PulseDot, SectionTitle, type IconName } from "@/components/ui";
 import { formatBitrate, formatDuration, formatMemory } from "@/lib/format";
 import { haptic } from "@/lib/haptics";
 import { useT, type TKey } from "@/lib/i18n";
 import { useRemote } from "@/state/remote";
+import { useToast } from "@/state/toasts";
 import { colors, font, radius } from "@/theme";
 
 function useNow(active: boolean) {
@@ -57,6 +59,7 @@ const pct = (part: number, total: number) => (total > 0 ? `${((part / total) * 1
 
 export default function Dashboard() {
   const t = useT();
+  const toast = useToast();
   const { state, stats, run, refresh, serverNow } = useRemote();
   const [confirm, setConfirm] = useState<"start" | "stop" | null>(null);
   const [pending, setPending] = useState<string | null>(null);
@@ -177,6 +180,7 @@ export default function Dashboard() {
           disabled={!ready && !streaming}
           onPress={() => {
             haptic.medium();
+            if (!streaming && enabledDest.length === 0) return toast.show(t("dash.noneEnabled"), "error");
             setConfirm(streaming ? "stop" : "start");
           }}
           style={{ marginTop: 14 }}
@@ -256,6 +260,8 @@ export default function Dashboard() {
       </Card>
 
       <StreamInfoCard />
+
+      <PhoneCameraCard />
 
       {/* Program preview */}
       <SectionTitle>{t("dash.preview")}</SectionTitle>

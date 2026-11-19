@@ -2,7 +2,7 @@
 
 use super::{ApiError, ApiResult, St};
 use crate::obs::model::*;
-use crate::obs::{Engine, PreviewKey};
+use crate::obs::{Engine, PreviewKey, PreviewQuality};
 use axum::body::Body;
 use axum::extract::{Path, Query, State};
 use axum::http::{header, StatusCode};
@@ -729,7 +729,7 @@ fn preview_key(q: &HashMap<String, String>) -> PreviewKey {
 
 async fn first_frame(c: &St, key: PreviewKey, fps: u32) -> Option<bytes::Bytes> {
     let e = c.engine.clone();
-    let (mut rx, _guard) = tokio::task::spawn_blocking(move || e.subscribe_preview(key, fps)).await.ok()?.ok()?;
+    let (mut rx, _guard) = tokio::task::spawn_blocking(move || e.subscribe_preview(key, PreviewQuality::Medium, fps)).await.ok()?.ok()?;
     let deadline = tokio::time::Instant::now() + Duration::from_secs(3);
     loop {
         if let Some(j) = rx.borrow_and_update().clone() {
@@ -743,12 +743,20 @@ async fn first_frame(c: &St, key: PreviewKey, fps: u32) -> Option<bytes::Bytes> 
 }
 
 async fn preview_mjpeg(State(c): State<St>, Query(q): Query<HashMap<String, String>>) -> ApiResult<Response> {
-    let fps = q.get("fps").and_then(|f| f.parse().ok()).unwrap_or(30u32).clamp(1, 60);
+    // `quality=low|medium|high|full` sets size, JPEG quality and the frame-rate cap; `fps` can lower it.
+    let quality = PreviewQuality::parse(q.get("quality").map(String::as_str));
+    let fps = q.get("fps").and_then(|f| f.parse().ok()).unwrap_or(60u32).clamp(1, 60);
     let key = preview_key(&q);
-    let e = c.engine.clone();
-    let (mut rx, guard) = tokio::task::spawn_blocking(move || e.subscribe_preview(key, fps)).await.map_err(|e| ApiError::bad(e.to_string()))??;
+    let subscribe = {
+        let e = c.engine.clone();
+        move |key: PreviewKey| {
+            let e = e.clone();
+            async move { tokio::task::spawn_blocking(move || e.subscribe_preview(key, quality, fps)).await.map_err(|e| anyhow::anyhow!(e.to_string())).and_then(|r| r) }
+        }
+    };
+    let (mut rx, guard) = subscribe(key.clone()).await.map_err(|e| ApiError::bad(e.to_string()))?;
     let stream = async_stream::stream! {
-        let _guard = guard;
+        let mut _guard = guard;
         loop {
             let frame = rx.borrow_and_update().clone();
             if let Some(jpg) = frame {
@@ -758,7 +766,20 @@ async fn preview_mjpeg(State(c): State<St>, Query(q): Query<HashMap<String, Stri
                 part.extend_from_slice(b"\r\n");
                 yield Ok::<_, std::io::Error>(bytes::Bytes::from(part));
             }
-            if rx.changed().await.is_err() { break; }
+            if rx.changed().await.is_ok() { continue; }
+            // The capture was torn down (scene collection loaded, video reset, engine restart):
+            // keep the connection and pick up the new one instead of ending the image.
+            let mut resumed = false;
+            for _ in 0..240 {
+                tokio::time::sleep(Duration::from_millis(500)).await;
+                if let Ok((r, g)) = subscribe(key.clone()).await {
+                    rx = r;
+                    _guard = g;
+                    resumed = true;
+                    break;
+                }
+            }
+            if !resumed { break; }
         }
     };
     Ok(Response::builder()

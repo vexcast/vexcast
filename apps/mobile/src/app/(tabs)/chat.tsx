@@ -71,6 +71,8 @@ function Chat() {
   const [text, setText] = useState("");
   const [sending, setSending] = useState(false);
   const [toDelete, setToDelete] = useState<ChatMessage | null>(null);
+  /** Second step: deleting removes the message on the platform, so ask again. */
+  const [confirmDelete, setConfirmDelete] = useState<ChatMessage | null>(null);
   const data = useMemo(() => [...chat].reverse(), [chat]);
   const connected = (state?.chat ?? []).filter((c) => c.enabled);
   const inset = useTabBarInset();
@@ -156,7 +158,7 @@ function Chat() {
         destructive
         title={toDelete ? t("chat.actionsTitle", { user: toDelete.user.name }) : ""}
         body={toDelete ? `“${toDelete.text}”\n\n${t("chat.deleteBody", { user: toDelete.user.name })}` : undefined}
-        confirmLabel={t("common.delete")}
+        confirmLabel={t("chat.deleteAction")}
         extra={
           toDelete && !toDelete.isBot
             ? {
@@ -175,6 +177,20 @@ function Chat() {
         onConfirm={() => {
           const m = toDelete;
           setToDelete(null);
+          if (m) setConfirmDelete(m);
+        }}
+      />
+      <ConfirmSheet
+        visible={!!confirmDelete}
+        icon="trash-outline"
+        destructive
+        title={t("chat.deleteTitle")}
+        body={confirmDelete ? t("chat.deleteBody", { user: confirmDelete.user.name }) : undefined}
+        confirmLabel={t("common.delete")}
+        onCancel={() => setConfirmDelete(null)}
+        onConfirm={() => {
+          const m = confirmDelete;
+          setConfirmDelete(null);
           if (m) void run((c) => c.deleteChatMessage(m.id), t("chat.deleted"));
         }}
       />

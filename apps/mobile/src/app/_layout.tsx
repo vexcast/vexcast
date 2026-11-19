@@ -1,6 +1,7 @@
 import { DarkTheme, Stack, ThemeProvider } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
 import { StatusBar } from "expo-status-bar";
+import * as ScreenOrientation from "expo-screen-orientation";
 import * as SystemUI from "expo-system-ui";
 import { useEffect } from "react";
 import { View } from "react-native";
@@ -53,6 +54,10 @@ function RootStack() {
         name="stream-info"
         options={{ title: t("info.title"), animation: "slide_from_right", headerBackButtonDisplayMode: "minimal", headerBackTitle: t("tabs.dashboard") }}
       />
+      <Stack.Screen
+        name="phone-camera"
+        options={{ title: t("cam.title"), animation: "slide_from_right", headerBackButtonDisplayMode: "minimal", headerBackTitle: t("tabs.dashboard") }}
+      />
       <Stack.Screen name="deck-button" options={{ title: t("deck.editTitle"), animation: "slide_from_right", headerBackButtonDisplayMode: "minimal", headerBackTitle: t("tabs.deck") }} />
       <Stack.Screen
         name="settings"
@@ -66,6 +71,8 @@ function RootStack() {
 export default function RootLayout() {
   useEffect(() => {
     SystemUI.setBackgroundColorAsync(colors.bg).catch(() => {});
+    // Portrait app; only the phone camera screen turns (while live).
+    ScreenOrientation.lockAsync(ScreenOrientation.OrientationLock.PORTRAIT_UP).catch(() => {});
     const id = setTimeout(() => SplashScreen.hideAsync().catch(() => {}), 50);
     return () => clearTimeout(id);
   }, []);

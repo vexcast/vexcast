@@ -10,6 +10,7 @@ import { errorMessage, useStore } from "@/lib/store";
 import { toast } from "sonner";
 import { LiveTextBinding, ThemeFontNotice } from "./live-text";
 import { PropertiesView } from "./properties-view";
+import { LiveImage } from "@/components/preview/live-image";
 
 export interface PropsBackend {
   load: () => Promise<Property[]>;
@@ -116,7 +117,7 @@ export function PropertiesDialog() {
         {showPreview && client && (
           <div className="flex h-56 shrink-0 items-center justify-center border-b bg-muted/40 p-3">
             <div className="checkerboard relative h-full overflow-hidden rounded-sm ring-1 ring-border" style={{ aspectRatio: `${source!.width} / ${source!.height}`, maxWidth: "100%" }}>
-              <img src={client.previewUrl({ source: source!.uuid })} alt="" className="absolute inset-0 size-full object-contain" />
+              <LiveImage src={client.previewUrl({ source: source!.uuid })} className="absolute inset-0 size-full object-contain" />
             </div>
           </div>
         )}

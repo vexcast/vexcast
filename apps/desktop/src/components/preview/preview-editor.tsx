@@ -33,6 +33,7 @@ import {
   type Space,
 } from "@/lib/transform";
 import { cn } from "@/lib/utils";
+import { LiveImage } from "@/components/preview/live-image";
 
 interface Props {
   sceneUuid: Uuid | null;
@@ -107,8 +108,11 @@ export function PreviewPane({ sceneUuid, editable, program, vertical, onActivate
   const stageH = H * k;
 
   const src = useMemo(
-    () => (prefs.previewEnabled ? client.previewUrl(program || !sceneUuid ? (vertical ? { canvas: "vertical" } : {}) : { scene: sceneUuid }) : ""),
-    [client, program, vertical, sceneUuid, prefs.previewEnabled],
+    () =>
+      prefs.previewEnabled
+        ? client.previewUrl({ ...(program || !sceneUuid ? (vertical ? { canvas: "vertical" as const } : {}) : { scene: sceneUuid }), quality: prefs.previewQuality })
+        : "",
+    [client, program, vertical, sceneUuid, prefs.previewEnabled, prefs.previewQuality],
   );
 
   // Effective items (optimistic overrides applied, also inside groups).
@@ -337,7 +341,7 @@ export function PreviewPane({ sceneUuid, editable, program, vertical, onActivate
       >
         <div ref={stageRef} className="absolute inset-0 overflow-hidden bg-black shadow-sm ring-1 ring-border" data-testid="preview-stage">
           {src ? (
-            <img key={src} src={src} alt="" draggable={false} className="pointer-events-none absolute inset-0 size-full object-fill select-none" />
+            <LiveImage src={src} className="pointer-events-none absolute inset-0 size-full object-fill select-none" />
           ) : (
             <div className="grid size-full place-items-center text-sm text-muted-foreground">{t.preview.disabled}</div>
           )}

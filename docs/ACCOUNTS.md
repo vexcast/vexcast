@@ -23,7 +23,7 @@ Con la cuenta conectada, Vexcast puede rellenar la clave de transmisión, usar e
    - **Redirect URL**: `http://localhost:7420/oauth/callback`
    - **Scopes**: `user:read`, `channel:read`, `channel:write`, `chat:write`, `streamkey:read`, `events:subscribe`.
 3. Copia el **Client ID** en `KICK_CLIENT_ID`.
-4. El **Client Secret** **no** se pone en el código. Despliega el proxy gratuito [`scripts/kick-token-proxy.js`](../scripts/kick-token-proxy.js) en Cloudflare Workers (las instrucciones están en el propio archivo) y pon su URL en `KICK_TOKEN_PROXY`.
+4. El **Client Secret** **no** se pone en el código. Despliega el proxy gratuito [`scripts/kick-token-proxy.js`](../scripts/kick-token-proxy.js) en Cloudflare Workers (las instrucciones están en el propio archivo) y pon su URL en `KICK_TOKEN_PROXY` (`oauth_config.rs`). Vexcast usa siempre esa dirección; no se configura con variables de entorno.
    - En compilaciones solo tuyas también puedes definir la variable `VEXCAST_KICK_CLIENT_SECRET`, sin proxy.
 
 ## YouTube (Client ID + secreto «de escritorio»)
@@ -38,4 +38,4 @@ Con la cuenta conectada, Vexcast puede rellenar la clave de transmisión, usar e
 
 ## Publicar sin dejar las claves en el código
 
-En vez de editar `oauth_config.rs`, define en GitHub (**Settings → Secrets and variables → Actions → Variables**) `VEXCAST_TWITCH_CLIENT_ID`, `VEXCAST_KICK_CLIENT_ID`, `VEXCAST_KICK_TOKEN_PROXY`, `VEXCAST_YOUTUBE_CLIENT_ID` y `VEXCAST_YOUTUBE_CLIENT_SECRET`. El workflow de publicación los inyecta al compilar.
+En vez de editar `oauth_config.rs`, define en GitHub (**Settings → Secrets and variables → Actions → Variables**) `VEXCAST_TWITCH_CLIENT_ID`, `VEXCAST_KICK_CLIENT_ID`, `VEXCAST_YOUTUBE_CLIENT_ID` y `VEXCAST_YOUTUBE_CLIENT_SECRET`. El workflow de publicación los inyecta al compilar.

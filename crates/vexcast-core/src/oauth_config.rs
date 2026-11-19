@@ -7,14 +7,15 @@
 //! - Twitch: a *Public* client — only the Client ID is needed (device-code flow).
 //! - YouTube: a Google "Desktop app" OAuth client. Google treats the secret of installed
 //!   apps as non-confidential, so it can ship with the app.
-//! - Kick: needs a client secret for the token exchange. Never commit it: either point
-//!   `KICK_TOKEN_PROXY` to a tiny proxy that adds the secret (scripts/kick-token-proxy.js),
-//!   or set `VEXCAST_KICK_CLIENT_SECRET` in your own local builds.
+//! - Kick: needs a client secret for the token exchange. Never commit it: the token
+//!   exchange goes through `KICK_TOKEN_PROXY` (always this one, not configurable), a tiny
+//!   proxy that adds the secret (scripts/kick-token-proxy.js). Local builds can skip it
+//!   with `VEXCAST_KICK_CLIENT_SECRET`.
 
 pub const TWITCH_CLIENT_ID: &str = "4y4vh8ur5gie96qcmop6h6imvgik0u";
 pub const KICK_CLIENT_ID: &str = "01M7KD53ZXXNMJGTSK6XWNQ0F4";
-/// e.g. "https://vexcast-kick.<your-subdomain>.workers.dev/token"
-pub const KICK_TOKEN_PROXY: &str = "";
+/// Adds the Kick client secret to the token exchange (scripts/kick-token-proxy.js); it holds no secret itself.
+pub const KICK_TOKEN_PROXY: &str = "https://vexcast-kick.solumnet.com/token";
 pub const YOUTUBE_CLIENT_ID: &str = "";
 pub const YOUTUBE_CLIENT_SECRET: &str = "";
 
@@ -28,7 +29,6 @@ pub fn get(name: &str) -> String {
     let build = match name {
         "VEXCAST_TWITCH_CLIENT_ID" => option_env!("VEXCAST_TWITCH_CLIENT_ID"),
         "VEXCAST_KICK_CLIENT_ID" => option_env!("VEXCAST_KICK_CLIENT_ID"),
-        "VEXCAST_KICK_TOKEN_PROXY" => option_env!("VEXCAST_KICK_TOKEN_PROXY"),
         "VEXCAST_YOUTUBE_CLIENT_ID" => option_env!("VEXCAST_YOUTUBE_CLIENT_ID"),
         "VEXCAST_YOUTUBE_CLIENT_SECRET" => option_env!("VEXCAST_YOUTUBE_CLIENT_SECRET"),
         _ => None,
@@ -39,7 +39,6 @@ pub fn get(name: &str) -> String {
     match name {
         "VEXCAST_TWITCH_CLIENT_ID" => TWITCH_CLIENT_ID,
         "VEXCAST_KICK_CLIENT_ID" => KICK_CLIENT_ID,
-        "VEXCAST_KICK_TOKEN_PROXY" => KICK_TOKEN_PROXY,
         "VEXCAST_YOUTUBE_CLIENT_ID" => YOUTUBE_CLIENT_ID,
         "VEXCAST_YOUTUBE_CLIENT_SECRET" => YOUTUBE_CLIENT_SECRET,
         _ => "",

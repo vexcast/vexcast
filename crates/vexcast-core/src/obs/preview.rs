@@ -2,7 +2,10 @@
 //! scaled on the GPU by libobs and JPEG-encoded for the UI (MJPEG).
 
 use super::ffi::*;
-use super::PreviewKey;
+use super::{PreviewKey, PreviewQuality};
+
+/// One preview stream: what it shows and how detailed it is.
+type Key = (PreviewKey, PreviewQuality);
 use bytes::Bytes;
 use libobs as sys;
 use parking_lot::Mutex;
@@ -14,7 +17,7 @@ use std::sync::{Arc, OnceLock};
 use tokio::sync::watch;
 
 struct Sink {
-    key: PreviewKey,
+    key: Key,
     w: u32,
     h: u32,
     divisor: u32,
@@ -36,12 +39,12 @@ struct Entry {
 
 unsafe impl Send for Entry {}
 
-type Frame = (PreviewKey, Vec<u8>, u32, u32);
+type Frame = (Key, Vec<u8>, u32, u32);
 
 static JPEG_TX: OnceLock<SyncSender<Frame>> = OnceLock::new();
-static ENTRIES: OnceLock<Arc<Mutex<HashMap<PreviewKey, Entry>>>> = OnceLock::new();
+static ENTRIES: OnceLock<Arc<Mutex<HashMap<Key, Entry>>>> = OnceLock::new();
 
-fn entries() -> Arc<Mutex<HashMap<PreviewKey, Entry>>> {
+fn entries() -> Arc<Mutex<HashMap<Key, Entry>>> {
     ENTRIES.get_or_init(|| Arc::new(Mutex::new(HashMap::new()))).clone()
 }
 
@@ -54,7 +57,7 @@ fn jpeg_tx() -> SyncSender<Frame> {
                 .spawn(move || {
                     while let Ok((key, rgba, w, h)) = rx.recv() {
                         let mut out = Vec::with_capacity((w * h / 3) as usize);
-                        let enc = jpeg_encoder::Encoder::new(&mut out, 82);
+                        let enc = jpeg_encoder::Encoder::new(&mut out, key.1.jpeg());
                         if enc.encode(&rgba, w as u16, h as u16, jpeg_encoder::ColorType::Rgba).is_ok() {
                             if let Some(e) = entries().lock().get(&key) {
                                 let _ = e.tx.send(Some(Bytes::from(out)));
@@ -97,7 +100,7 @@ fn fit(w: u32, h: u32, max_w: u32, max_h: u32) -> (u32, u32) {
 
 /// Decrements the subscriber count when dropped.
 pub struct PreviewGuard {
-    key: PreviewKey,
+    key: Key,
 }
 
 impl Drop for PreviewGuard {
@@ -149,7 +152,7 @@ impl Drop for CanvasRef {
     }
 }
 
-fn spawn_renderer(key: PreviewKey, target: Target, fps: u32) -> Renderer {
+fn spawn_renderer(key: Key, target: Target, fps: u32) -> Renderer {
     let stop = Arc::new(std::sync::atomic::AtomicBool::new(false));
     let st = stop.clone();
     let thread = std::thread::Builder::new()
@@ -180,7 +183,8 @@ fn spawn_renderer(key: PreviewKey, target: Target, fps: u32) -> Renderer {
                     Target::Canvas(_, w, h) => (*w, *h, true),
                 };
                 if bw >= 2 && bh >= 2 {
-                    let (w, h) = if big { fit(bw, bh, 1280, 1280) } else { fit(bw, bh, 800, 450) };
+                    let (mw, mh) = if big { key.1.max_size() } else { key.1.source_size() };
+                    let (w, h) = fit(bw, bh, mw, mh);
                     let mut frame: Option<Vec<u8>> = None;
                     sys::obs_enter_graphics();
                     if tex.is_null() {
@@ -257,7 +261,9 @@ impl Previews {
     }
 
     /// Subscribe to JPEG frames for `key`. Starts the capture on first subscriber.
-    pub fn subscribe(&self, key: PreviewKey, max_fps: u32, canvas: Option<(*mut sys::obs_canvas_t, u32, u32)>) -> anyhow::Result<(watch::Receiver<Option<Bytes>>, PreviewGuard)> {
+    pub fn subscribe(&self, key: PreviewKey, quality: PreviewQuality, max_fps: u32, canvas: Option<(*mut sys::obs_canvas_t, u32, u32)>) -> anyhow::Result<(watch::Receiver<Option<Bytes>>, PreviewGuard)> {
+        let max_fps = max_fps.min(quality.max_fps());
+        let key: Key = (key, quality);
         let map = entries();
         let mut m = map.lock();
         if let Some(e) = m.get_mut(&key) {
@@ -273,9 +279,10 @@ impl Previews {
             }
             let fps = (ovi.fps_num as f64 / ovi.fps_den.max(1) as f64).max(1.0);
             let divisor = (fps / max_fps.max(1) as f64).round().max(1.0) as u32;
-            match &key {
+            match &key.0 {
                 PreviewKey::Program => {
-                    let (w, h) = fit(ovi.base_width, ovi.base_height, 1280, 720);
+                    let (mw, mh) = quality.max_size();
+                    let (w, h) = fit(ovi.base_width, ovi.base_height, mw, mh);
                     let sink = Box::new(Sink { key: key.clone(), w, h, divisor, counter: AtomicU32::new(0) });
                     let conv = sys::video_scale_info { format: sys::video_format_VIDEO_FORMAT_RGBA, width: w, height: h, range: sys::video_range_type_VIDEO_RANGE_FULL, colorspace: sys::video_colorspace_VIDEO_CS_709 };
                     sys::obs_add_raw_video_callback(&conv, Some(on_frame), &*sink as *const Sink as *mut c_void);
@@ -283,7 +290,7 @@ impl Previews {
                 }
                 PreviewKey::Scene(uuid) | PreviewKey::Source(uuid) => {
                     let src = Source::by_uuid(uuid).ok_or_else(|| anyhow::anyhow!("No encontrado"))?;
-                    let is_scene = matches!(key, PreviewKey::Scene(_));
+                    let is_scene = matches!(key.0, PreviewKey::Scene(_));
                     entry.renderer = Some(spawn_renderer(key.clone(), Target::Source(src, is_scene), if is_scene { max_fps.min(30) } else { max_fps.min(15) }));
                 }
                 PreviewKey::Vertical => {

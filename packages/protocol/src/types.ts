@@ -1145,7 +1145,18 @@ export type ServerEvent =
   | { type: "tts"; data: { id: Id; url: string; text: string; played: boolean } } // speech; `played` = already in the stream mix
   | { type: "caption"; data: Caption }
   | { type: "notification"; data: { level: "info" | "success" | "warning" | "error"; message: string } }
-  | { type: "alert_skip" }; // the current alert was skipped (stop its visuals/audio)
+  | { type: "alert_skip" } // the current alert was skipped (stop its visuals/audio)
+  | { type: "phone_cams"; data: PhoneCam[] }; // phones sending their camera over the local network right now
+
+/** A phone sending its camera to Vexcast over the local network (`/phonecam/ws`). */
+export interface PhoneCam {
+  /** Room id; the browser source showing it has `phonecam.html?id=<room>` in its URL. */
+  room: string;
+  /** Name of the phone. */
+  device: string;
+  /** When it started sending (unix ms). */
+  since: number;
+}
 
 export const DEFAULT_PORT = 7420;
 export const API_PREFIX = "/api/v1";

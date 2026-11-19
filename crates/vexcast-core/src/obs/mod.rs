@@ -46,9 +46,71 @@ pub use catalog::best_video_encoder;
 #[cfg(not(feature = "obs"))]
 pub use stub::*;
 
-pub use preview_key::PreviewKey;
+pub use preview_key::{PreviewKey, PreviewQuality};
 
 mod preview_key {
+    /// How detailed the UI previews are: size, JPEG quality and frame rate (more = more CPU/GPU).
+    #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
+    pub enum PreviewQuality {
+        /// 640 px, 15 fps: lightest, for slow PCs or while streaming heavy games.
+        Low,
+        /// 1280 px, 30 fps (the default).
+        #[default]
+        Medium,
+        /// 1920 px, 30 fps.
+        High,
+        /// The canvas resolution, up to 60 fps.
+        Full,
+    }
+
+    impl PreviewQuality {
+        pub fn parse(s: Option<&str>) -> Self {
+            match s.unwrap_or_default() {
+                "low" => Self::Low,
+                "high" => Self::High,
+                "full" | "max" => Self::Full,
+                _ => Self::Medium,
+            }
+        }
+
+        /// Bounding box for canvas/scene previews (keeps the aspect ratio, never upscales).
+        pub fn max_size(self) -> (u32, u32) {
+            match self {
+                Self::Low => (640, 640),
+                Self::Medium => (1280, 1280),
+                Self::High => (1920, 1920),
+                Self::Full => (u32::MAX, u32::MAX),
+            }
+        }
+
+        /// Bounding box for single-source previews (properties, filters).
+        pub fn source_size(self) -> (u32, u32) {
+            match self {
+                Self::Low => (480, 270),
+                Self::Medium => (800, 450),
+                Self::High => (1280, 720),
+                Self::Full => (1920, 1080),
+            }
+        }
+
+        pub fn jpeg(self) -> u8 {
+            match self {
+                Self::Low => 65,
+                Self::Medium => 80,
+                Self::High => 88,
+                Self::Full => 92,
+            }
+        }
+
+        pub fn max_fps(self) -> u32 {
+            match self {
+                Self::Low => 15,
+                Self::Medium | Self::High => 30,
+                Self::Full => 60,
+            }
+        }
+    }
+
     #[derive(Clone, Debug, PartialEq, Eq, Hash)]
     pub enum PreviewKey {
         Program,
@@ -425,14 +487,14 @@ mod engine {
             audio::tap(uuid).map(|(rx, t)| (rx, t, audio::sample_rate()))
         }
 
-        pub fn subscribe_preview(&self, key: PreviewKey, fps: u32) -> anyhow::Result<(tokio::sync::watch::Receiver<Option<bytes::Bytes>>, preview::PreviewGuard)> {
+        pub fn subscribe_preview(&self, key: PreviewKey, quality: PreviewQuality, fps: u32) -> anyhow::Result<(tokio::sync::watch::Receiver<Option<bytes::Bytes>>, preview::PreviewGuard)> {
             self.require_ready()?;
             let canvas = if key == PreviewKey::Vertical {
                 Some(self.vertical_canvas_ref().ok_or_else(|| anyhow::anyhow!("El lienzo vertical está desactivado"))?)
             } else {
                 None
             };
-            self.previews.subscribe(key, fps, canvas)
+            self.previews.subscribe(key, quality, fps, canvas)
         }
 
         pub fn obs_collections_list(&self) -> Vec<(String, PathBuf, &'static str)> {

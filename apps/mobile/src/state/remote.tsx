@@ -248,9 +248,11 @@ export function RemoteProvider({ children }: { children: ReactNode }) {
       } catch (e) {
         if (attempt === attemptRef.current) {
           setError(
-            e instanceof ApiError && (e.status === 401 || e.status === 403)
+            e instanceof ApiError && e.status === 401
               ? tr("connect.errToken")
-              : tr("connect.errUnreachable", { hosts: health.host }),
+              : e instanceof ApiError && e.status === 403
+                ? tr("connect.errRefused", { reason: e.message })
+                : tr("connect.errUnreachable", { hosts: health.host }),
           );
         }
         return false;
@@ -394,8 +396,14 @@ export function RemoteProvider({ children }: { children: ReactNode }) {
       if (success) toastRef.current.show(success, "success");
       return r;
     } catch (e) {
-      const msg = e instanceof Error ? e.message : String(e);
-      toastRef.current.show(tRef.current("toast.actionFailed", { error: msg }), "error");
+      // This phone's role doesn't allow it, or the PC can't be reached: say it plainly.
+      const msg =
+        e instanceof ApiError && e.status === 403
+          ? tRef.current("toast.forbidden")
+          : e instanceof TypeError || (e instanceof Error && /network request failed/i.test(e.message))
+            ? tRef.current("toast.network")
+            : tRef.current("toast.actionFailed", { error: e instanceof Error ? e.message : String(e) });
+      toastRef.current.show(msg, "error");
       return undefined;
     }
   }, []);

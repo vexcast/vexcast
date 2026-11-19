@@ -25,6 +25,7 @@ pub mod oauth;
 pub mod oauth_config;
 pub mod obs;
 pub mod pairing;
+pub mod phonecam;
 pub mod polls;
 pub mod remote;
 pub mod twitch_events;

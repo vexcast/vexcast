@@ -52,5 +52,14 @@ El servidor envía mensajes JSON (`ServerEvent`):
 - `stats`: `Stats` (~1 Hz).
 - `levels`: `AudioLevel[]` por canal (~20 Hz).
 - `chat`, `chat_deleted`, `chat_highlight`, `poll`, `giveaway`, `songs`, `alert`, `alert_skip`, `tts`, `caption`, `notification`.
+- `phone_cams`: `PhoneCam[]`, los móviles que están enviando su cámara por la red local (también con `GET /api/v1/phonecam`).
 
 Los clientes no envían nada por el socket: los comandos van por REST.
+
+## WebSocket `/api/v1/phonecam/ws?id=<sala>&role=send|view`
+
+Señalización WebRTC de «Cámara del móvil» por red local. El móvil (`send`) y el widget `phonecam.html` dentro de una fuente de navegador (`view`) se encuentran en la sala `id` (letras, números, `-` y `_`, hasta 64) y se intercambian la oferta, la respuesta y los candidatos ICE; el vídeo va directo entre ellos por la red local, sin pasar por el núcleo.
+
+- Cuando entra un receptor, el móvil recibe `{"type":"join","peer":N}`; cuando sale, `{"type":"leave","peer":N}`.
+- El móvil envía `{"to":N, ...}` y el receptor N lo recibe con `"from":0`. Lo que envía un receptor le llega al móvil con `"from":N`.
+- Si el móvil se desconecta, los receptores reciben `{"type":"bye"}`. Una nueva conexión del móvil sustituye a la anterior.

@@ -3,13 +3,18 @@ import type { ExpoConfig } from "expo/config";
 import pkg from "./package.json";
 
 const BG = "#07070B";
+const CAMERA =
+  "Vexcast Remote usa la cámara para escanear el código QR de tu PC y para usar el móvil como cámara en tus directos. / Vexcast Remote uses the camera to scan your PC's QR code and to use the phone as a camera on your streams.";
+const MIC =
+  "Vexcast Remote usa el micrófono solo si decides enviarlo junto a la cámara del móvil. / Vexcast Remote uses the microphone only if you choose to send it along with the phone camera.";
 
 const config: ExpoConfig = {
   name: "Vexcast Remote",
   slug: "vexcast-remote",
   scheme: "vexcast",
   version: pkg.version,
-  orientation: "portrait",
+  // Portrait everywhere (locked at startup); the phone-camera screen turns while live.
+  orientation: "default",
   icon: "./assets/icon.png",
   userInterfaceStyle: "dark",
   backgroundColor: BG,
@@ -20,8 +25,8 @@ const config: ExpoConfig = {
     bundleIdentifier: "app.vexcast.remote",
     supportsTablet: true,
     infoPlist: {
-      NSCameraUsageDescription:
-        "Vexcast Remote usa la cámara para escanear el código QR de emparejamiento de tu PC. / Vexcast Remote uses the camera to scan the pairing QR code shown on your PC.",
+      NSCameraUsageDescription: CAMERA,
+      NSMicrophoneUsageDescription: MIC,
       NSLocalNetworkUsageDescription:
         "Vexcast Remote se conecta a Vexcast en tu PC a través de la red local. / Vexcast Remote connects to Vexcast on your PC over the local network.",
       NSAppTransportSecurity: {
@@ -37,8 +42,7 @@ const config: ExpoConfig = {
       monochromeImage: "./assets/adaptive-icon-monochrome.png",
       backgroundColor: BG,
     },
-    permissions: ["android.permission.CAMERA", "android.permission.INTERNET"],
-    blockedPermissions: ["android.permission.RECORD_AUDIO"],
+    permissions: ["android.permission.CAMERA", "android.permission.INTERNET", "android.permission.RECORD_AUDIO", "android.permission.MODIFY_AUDIO_SETTINGS"],
     predictiveBackGestureEnabled: false,
   },
   web: {
@@ -51,13 +55,13 @@ const config: ExpoConfig = {
     "expo-localization",
     "expo-secure-store",
     "expo-web-browser",
+    ["expo-screen-orientation", { initialOrientation: "PORTRAIT_UP" }],
     [
       "expo-camera",
       {
-        cameraPermission:
-          "Vexcast Remote usa la cámara para escanear el código QR de emparejamiento de tu PC. / Vexcast Remote uses the camera to scan the pairing QR code shown on your PC.",
-        microphonePermission: false,
-        recordAudioAndroid: false,
+        cameraPermission: CAMERA,
+        microphonePermission: MIC,
+        recordAudioAndroid: true,
         barcodeScannerEnabled: true,
       },
     ],

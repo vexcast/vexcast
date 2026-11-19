@@ -9,8 +9,7 @@
 //   2. wrangler deploy scripts/kick-token-proxy.js --name vexcast-kick --compatibility-date 2024-11-01
 //   3. wrangler secret put KICK_CLIENT_ID      (paste your Kick Client ID)
 //      wrangler secret put KICK_CLIENT_SECRET  (paste your Kick Client Secret)
-//   4. Put https://vexcast-kick.<your-subdomain>.workers.dev/token in KICK_TOKEN_PROXY
-//      (crates/vexcast-core/src/oauth_config.rs) or the VEXCAST_KICK_TOKEN_PROXY env var.
+//   4. Put its /token URL in KICK_TOKEN_PROXY (crates/vexcast-core/src/oauth_config.rs).
 
 export default {
   async fetch(request, env) {

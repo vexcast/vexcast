@@ -130,6 +130,9 @@ export default function Settings() {
                         if (ok) {
                           haptic.success();
                           goHome();
+                        } else {
+                          haptic.error();
+                          toast.show(t("settings.switchFailed", { name: c.name }), "error");
                         }
                       }}
                     >

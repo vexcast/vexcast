@@ -3,6 +3,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { useT } from "@/i18n";
 import { useDialogs } from "@/lib/dialogs";
 import { useStore } from "@/lib/store";
+import { LiveImage } from "@/components/preview/live-image";
 
 /** OBS "Interact" window: forwards mouse/keyboard to an interactive source. */
 export function InteractDialog() {
@@ -47,7 +48,7 @@ export function InteractDialog() {
           }}
           onKeyUp={(e) => send({ type: "key_up", key: e.key, code: e.code, ...mods(e) })}
         >
-          <img src={client.previewUrl({ source: uuid })} alt="" draggable={false} className="pointer-events-none absolute inset-0 size-full object-contain" />
+          <LiveImage src={client.previewUrl({ source: uuid })} className="pointer-events-none absolute inset-0 size-full object-contain" />
         </div>
       </DialogContent>
     </Dialog>

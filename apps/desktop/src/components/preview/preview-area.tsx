@@ -1,10 +1,19 @@
-import { ArrowRight, RectangleHorizontal, RectangleVertical, Zap } from "lucide-react";
+import { ArrowRight, Gauge, RectangleHorizontal, RectangleVertical, Zap } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuLabel,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { useT } from "@/i18n";
 import { transitionToProgram } from "@/lib/actions";
-import { usePrefs } from "@/lib/prefs";
+import { PREVIEW_QUALITIES, type PreviewQuality, usePrefs } from "@/lib/prefs";
 import { act, baseSceneUuid, useStore } from "@/lib/store";
 import { PreviewPane } from "./preview-editor";
 import { ArrangeVerticalMenu } from "./vertical-tools";
@@ -26,6 +35,46 @@ function CanvasToggle() {
   );
 }
 
+const Q_KEYS: Record<PreviewQuality, ["qLow" | "qMedium" | "qHigh" | "qFull", "qLowDesc" | "qMediumDesc" | "qHighDesc" | "qFullDesc"]> = {
+  low: ["qLow", "qLowDesc"],
+  medium: ["qMedium", "qMediumDesc"],
+  high: ["qHigh", "qHighDesc"],
+  full: ["qFull", "qFullDesc"],
+};
+
+/** Preview quality picker (size and frame rate of the previews; never the stream itself). */
+export function PreviewQualityMenu() {
+  const t = useT();
+  const p = t.preview;
+  const quality = usePrefs((x) => x.previewQuality);
+  const set = usePrefs((x) => x.set);
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button variant="ghost" size="sm" className="h-7 gap-1.5 px-2 text-xs text-muted-foreground" title={p.qualityTitle} data-testid="preview-quality">
+          <Gauge />
+          <span className="hidden sm:inline">{p[Q_KEYS[quality][0]]}</span>
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end" className="w-72">
+        <DropdownMenuLabel>{p.qualityTitle}</DropdownMenuLabel>
+        <DropdownMenuRadioGroup value={quality} onValueChange={(v) => set({ previewQuality: v as PreviewQuality })}>
+          {PREVIEW_QUALITIES.map((q) => (
+            <DropdownMenuRadioItem key={q} value={q} className="items-start">
+              <span className="flex flex-col">
+                <span>{p[Q_KEYS[q][0]]}</span>
+                <span className="text-xs text-muted-foreground">{p[Q_KEYS[q][1]]}</span>
+              </span>
+            </DropdownMenuRadioItem>
+          ))}
+        </DropdownMenuRadioGroup>
+        <DropdownMenuSeparator />
+        <p className="px-2 py-1.5 text-xs text-muted-foreground">{p.qualityHint}</p>
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+}
+
 const twinOf = (scenes: { uuid: string; verticalSceneUuid: string | null }[], u: string | null) => scenes.find((s) => s.uuid === u)?.verticalSceneUuid ?? null;
 
 /** Main preview panel: the edited scene (preview scene in studio mode) on the selected canvas. */
@@ -41,18 +90,17 @@ export function PreviewPanel() {
   const name = scenes.find((s) => s.uuid === base)?.name ?? t.preview.noScene;
   return (
     <div className="flex h-full min-h-0 flex-col" data-testid="panel-preview">
-      {(verticalEnabled || studio) && (
-        <div className="flex h-9 shrink-0 items-center gap-2 border-b px-2">
-          {studio && (
-            <span className="min-w-0 truncate text-xs text-muted-foreground" title={name}>
-              {t.preview.preview}: <span className="font-medium text-foreground">{name}</span>
-            </span>
-          )}
-          <span className="flex-1" />
-          {vertical && <ArrangeVerticalMenu />}
-          {verticalEnabled && <CanvasToggle />}
-        </div>
-      )}
+      <div className="flex h-9 shrink-0 items-center gap-2 border-b px-2">
+        {studio && (
+          <span className="min-w-0 truncate text-xs text-muted-foreground" title={name}>
+            {t.preview.preview}: <span className="font-medium text-foreground">{name}</span>
+          </span>
+        )}
+        <span className="flex-1" />
+        <PreviewQualityMenu />
+        {vertical && <ArrangeVerticalMenu />}
+        {verticalEnabled && <CanvasToggle />}
+      </div>
       <PreviewPane
         key={vertical ? "v" : "h"}
         sceneUuid={scene}

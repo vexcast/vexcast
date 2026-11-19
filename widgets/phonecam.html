@@ -1,0 +1,116 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Vexcast · Cámara del móvil</title>
+    <!--
+      Receives the Vexcast Remote phone camera over the local network (WebRTC).
+      Query: id=<room> (required), token=<remote token> (only when not opened from this PC),
+             fit=contain|cover (default contain), muted=1 (ignore the phone's microphone).
+    -->
+    <style>
+      html, body { margin: 0; height: 100%; background: transparent; overflow: hidden; }
+      video { position: absolute; top: 50%; left: 50%; width: 100%; height: 100%; display: block; background: transparent; transform: translate(-50%, -50%); }
+      #hint {
+        position: absolute; inset: 0; display: none; place-items: center; text-align: center;
+        font: 600 28px/1.4 system-ui, sans-serif; color: #fff; text-shadow: 0 2px 8px #000a;
+      }
+      body.waiting.show-hint #hint { display: grid; }
+    </style>
+  </head>
+  <body class="waiting">
+    <video id="v" autoplay playsinline></video>
+    <div id="hint">Abre «Cámara del móvil» en Vexcast Remote</div>
+    <script>
+      (function () {
+        var q = new URLSearchParams(location.search);
+        var room = q.get("id") || "";
+        var token = q.get("token") || "";
+        var video = document.getElementById("v");
+        // The phone decides how its image is shown (mirror, flip, rotation, fill); ?fit= forces the fill mode.
+        var view = { mirror: false, flip: false, rotate: 0, fit: q.get("fit") || "contain" };
+        function layout() {
+          var r = ((Number(view.rotate) || 0) % 360 + 360) % 360;
+          var side = r === 90 || r === 270;
+          video.style.width = side ? "100vh" : "100vw";
+          video.style.height = side ? "100vw" : "100vh";
+          video.style.objectFit = (q.get("fit") || view.fit) === "cover" ? "cover" : "contain";
+          video.style.transform = "translate(-50%, -50%) rotate(" + r + "deg) scale(" + (view.mirror ? -1 : 1) + "," + (view.flip ? -1 : 1) + ")";
+        }
+        layout();
+        video.muted = q.get("muted") === "1";
+        // Shown only when opened in a normal browser, never inside the stream.
+        if (!/OBS|Vexcast/i.test(navigator.userAgent) && !window.obsstudio) document.body.classList.add("show-hint");
+
+        var pc = null;
+        var ws = null;
+        var retry = 0;
+
+        function setWaiting(on) {
+          document.body.classList.toggle("waiting", on);
+          if (on) video.srcObject = null;
+        }
+
+        function closePc() {
+          if (pc) { try { pc.close(); } catch (e) {} }
+          pc = null;
+          setWaiting(true);
+        }
+
+        function send(m) {
+          if (ws && ws.readyState === 1) ws.send(JSON.stringify(m));
+        }
+
+        async function onOffer(sdp) {
+          closePc();
+          // Same network: no STUN/TURN needed (and nothing leaves the LAN).
+          pc = new RTCPeerConnection({ iceServers: [] });
+          var mine = pc;
+          pc.onicecandidate = function (e) { if (e.candidate) send({ type: "ice", candidate: e.candidate.toJSON() }); };
+          pc.ontrack = function (e) {
+            var stream = e.streams[0] || new MediaStream([e.track]);
+            if (video.srcObject !== stream) video.srcObject = stream;
+            setWaiting(false);
+            video.play().catch(function () {
+              // Autoplay with sound refused (a normal browser): play muted rather than nothing.
+              video.muted = true;
+              video.play().catch(function () {});
+            });
+          };
+          pc.onconnectionstatechange = function () {
+            if (mine !== pc) return;
+            if (pc.connectionState === "failed" || pc.connectionState === "closed") closePc();
+          };
+          await pc.setRemoteDescription({ type: "offer", sdp: sdp });
+          var answer = await pc.createAnswer();
+          await pc.setLocalDescription(answer);
+          send({ type: "answer", sdp: pc.localDescription.sdp });
+        }
+
+        function connect() {
+          var url = location.origin.replace(/^http/, "ws") + "/api/v1/phonecam/ws?role=view&id=" + encodeURIComponent(room);
+          if (token) url += "&token=" + encodeURIComponent(token);
+          ws = new WebSocket(url);
+          ws.onopen = function () { retry = 0; };
+          ws.onmessage = function (ev) {
+            var m;
+            try { m = JSON.parse(ev.data); } catch (e) { return; }
+            if (m.type === "offer") onOffer(m.sdp).catch(function (e) { console.warn("phonecam offer", e); closePc(); });
+            else if (m.type === "ice" && pc && m.candidate) pc.addIceCandidate(m.candidate).catch(function () {});
+            else if (m.type === "view") { view = m; layout(); }
+            else if (m.type === "bye") closePc();
+          };
+          ws.onclose = function () {
+            ws = null;
+            closePc();
+            setTimeout(connect, Math.min(500 * Math.pow(2, retry++), 5000));
+          };
+        }
+
+        if (room) connect();
+        else document.getElementById("hint").textContent = "Falta el parámetro ?id=";
+      })();
+    </script>
+  </body>
+</html>

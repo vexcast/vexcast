@@ -108,7 +108,8 @@ export default function TabsLayout() {
   // Mini player: every tab but Home (which already shows the program), above the
   // tab bar — and above the composer on Chat.
   const onChat = pathname === "/chat";
-  const showMini = miniPlayer && !keyboard && pathname !== "/dashboard";
+  // Not on Chat either: it would cover the newest messages right above the composer.
+  const showMini = miniPlayer && !keyboard && pathname !== "/dashboard" && !onChat;
   const barSpace = tabBar === "classic" ? 0 : inset;
   const miniBottom = barSpace + 10 + (onChat ? 64 : 0);
   // Scrolling screens leave room so their last row can come out from under it.

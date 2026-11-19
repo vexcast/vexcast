@@ -11,6 +11,7 @@ import { InteractDialog } from "@/components/dialogs/interact-dialog";
 import { ConfirmHost, PromptHost } from "@/components/dialogs/prompt-host";
 import { TransformDialog } from "@/components/dialogs/transform-dialog";
 import { AboutDialog, ReleaseNotesDialog } from "@/components/layout/Banners";
+import { PhoneCamAlert } from "@/components/layout/phone-cam-alert";
 import { StreamInfoDialog } from "@/components/accounts/stream-info-dialog";
 import { NavRail } from "@/components/layout/nav-rail";
 import { AiPage, AlertsPage, BotPage, ChatPage, DestinationsPage, RemotePage } from "@/components/pages/pages";
@@ -171,6 +172,7 @@ function Shell() {
         </main>
       </div>
       <StatusBar />
+      <PhoneCamAlert />
     </div>
   );
 }

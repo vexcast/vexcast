@@ -338,6 +338,8 @@ export class VexcastClient {
   clearPoll = () => this.del<void>("/poll");
   /** Song requests: the queue played by the songs overlay. */
   songs = () => this.get<import("./types").SongQueue>("/songs");
+  /** Phones sending their camera over the local network right now. */
+  phoneCams = () => this.get<import("./types").PhoneCam[]>("/phonecam");
   addSong = (url: string) => this.post<import("./types").Song>("/songs", { url });
   nextSong = () => this.post<void>("/songs/next", {});
   pauseSongs = (paused: boolean) => this.post<void>("/songs/pause", { paused });
@@ -441,8 +443,10 @@ export class VexcastClient {
   checkUpdates = () => this.post<UpdateInfo>("/update/check");
 
   /** MJPEG stream of the program output (or `scene` / `source`) — use in <img src>. */
-  previewUrl = (opts: { canvas?: "horizontal" | "vertical"; scene?: Uuid; source?: Uuid; fps?: number } = {}) => {
+  /** `quality`: low (640 px, 15 fps) · medium (1280 px, 30 fps, default) · high (1920 px) · full (canvas size, up to 60 fps). */
+  previewUrl = (opts: { canvas?: "horizontal" | "vertical"; scene?: Uuid; source?: Uuid; fps?: number; quality?: "low" | "medium" | "high" | "full" } = {}) => {
     const q = new URLSearchParams();
+    if (opts.quality && opts.quality !== "medium") q.set("quality", opts.quality);
     if (opts.canvas) q.set("canvas", opts.canvas);
     if (opts.scene) q.set("scene", opts.scene);
     if (opts.source) q.set("source", opts.source);

@@ -275,7 +275,7 @@ impl OAuth {
             match platform.as_str() {
                 "kick" => {
                     let cid = client_id("kick");
-                    let proxy = cfg("VEXCAST_KICK_TOKEN_PROXY");
+                    let proxy = crate::oauth_config::KICK_TOKEN_PROXY.to_string();
                     let secret = std::env::var("VEXCAST_KICK_CLIENT_SECRET").unwrap_or_default();
                     let form = [("grant_type", "authorization_code"), ("client_id", cid.as_str()), ("redirect_uri", p.redirect.as_str()), ("code_verifier", p.verifier.as_str()), ("code", code)];
                     let v: Value = if !secret.is_empty() {
@@ -390,7 +390,7 @@ impl OAuth {
             }
             "kick" => {
                 let form = [("client_id", cid.as_str()), ("grant_type", "refresh_token"), ("refresh_token", t.refresh_token.as_str())];
-                let proxy = cfg("VEXCAST_KICK_TOKEN_PROXY");
+                let proxy = crate::oauth_config::KICK_TOKEN_PROXY.to_string();
                 let secret = std::env::var("VEXCAST_KICK_CLIENT_SECRET").unwrap_or_default();
                 if !secret.is_empty() {
                     let mut f = form.to_vec();

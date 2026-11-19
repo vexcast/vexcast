@@ -26,7 +26,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
   const show = useCallback(
     (message: string, level: ToastLevel = "info") => {
       const id = nextId.current++;
-      setToasts((ts) => [...ts.slice(-2), { id, level, message }]);
+      setToasts((ts) => (ts.some((x) => x.message === message) ? ts : [...ts.slice(-2), { id, level, message }]));
       setTimeout(() => dismiss(id), level === "error" ? 4500 : 2800);
     },
     [dismiss],

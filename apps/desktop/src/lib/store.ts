@@ -24,6 +24,8 @@ interface Store {
   giveaway: import("@vexcast/protocol").Giveaway | null;
   /** Song request queue. */
   songs: import("@vexcast/protocol").SongQueue | null;
+  /** Phones sending their camera over the local network. */
+  phoneCams: import("@vexcast/protocol").PhoneCam[];
   events: AlertEvent[];
   /** serverTime - Date.now(), to compute uptimes without clock skew. */
   clockOffset: number;
@@ -71,6 +73,7 @@ export const useStore = create<Store>((set, get) => ({
   poll: null,
   giveaway: null,
   songs: null,
+  phoneCams: [],
   events: [],
   clockOffset: 0,
   updateDismissed: false,
@@ -171,6 +174,9 @@ function handleEvent(ev: ServerEvent) {
     case "songs":
       set({ songs: ev.data });
       break;
+    case "phone_cams":
+      set({ phoneCams: ev.data });
+      break;
     case "alert":
       set({ events: [ev.data, ...get().events.filter((e) => e.id !== ev.data.id)].slice(0, MAX_EVENTS) });
       break;
@@ -185,7 +191,7 @@ function handleEvent(ev: ServerEvent) {
 async function prefill(client: VexcastClient) {
   const { getState: get, setState: set } = useStore;
   const [history, alerts, highlight] = await Promise.all([client.chatHistory().catch(() => []), client.recentAlerts().catch(() => []), client.chatHighlight().catch(() => null)]);
-  set({ highlight, poll: await client.poll().catch(() => null), giveaway: await client.giveaway().catch(() => null), songs: await client.songs().catch(() => null) });
+  set({ highlight, poll: await client.poll().catch(() => null), giveaway: await client.giveaway().catch(() => null), songs: await client.songs().catch(() => null), phoneCams: await client.phoneCams().catch(() => []) });
   if (history.length) {
     const byId = new Map<string, ChatMessage>();
     for (const m of [...history, ...get().chat]) byId.set(m.id, m);

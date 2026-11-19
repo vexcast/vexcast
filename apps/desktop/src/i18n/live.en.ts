@@ -182,6 +182,16 @@ export const liveEn: Widen<typeof liveEs> = {
     viewerDesc: "Sees the status, changes nothing",
     saved: "Permissions updated",
   },
+  phoneCam: {
+    missing: "The phone camera is sending, but “{scene}” doesn't have it",
+    hidden: "The phone camera is sending, but it's hidden in “{scene}”",
+    add: "Add to the scene",
+    show: "Show it",
+    added: "Phone camera added to “{scene}”",
+    shown: "Phone camera visible in “{scene}”",
+    dismiss: "Not now",
+    sourceName: "Phone camera",
+  },
   guests: {
     title: "Live guests",
     desc: "Invite someone with a link: they open it in their browser, share camera and mic, and show up in your scene as one more source (with their audio in the mixer).",

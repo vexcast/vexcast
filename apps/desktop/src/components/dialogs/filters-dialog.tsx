@@ -14,6 +14,7 @@ import { confirmDialog, promptDialog, useDialogs } from "@/lib/dialogs";
 import { fmt } from "@/lib/format";
 import { act, findScene, useStore } from "@/lib/store";
 import { cn } from "@/lib/utils";
+import { LiveImage } from "@/components/preview/live-image";
 
 type Section = "av" | "effect";
 const sectionOf = (ty: SourceType | undefined): Section => (!ty ? "effect" : ty.audio || ty.async ? "av" : "effect");
@@ -202,7 +203,7 @@ export function FiltersEditor({ uuid, compact }: { uuid: string | null; compact?
             {showPreview && !compact && client && uuid && (
               <div className="flex h-60 shrink-0 items-center justify-center border-b bg-muted/40 p-3">
                 <div className="checkerboard relative h-full overflow-hidden rounded-sm ring-1 ring-border" style={{ aspectRatio: `${source!.width} / ${source!.height}`, maxWidth: "100%" }}>
-                  <img src={client.previewUrl({ source: uuid })} alt="" className="absolute inset-0 size-full object-contain" />
+                  <LiveImage src={client.previewUrl({ source: uuid })} className="absolute inset-0 size-full object-contain" />
                 </div>
               </div>
             )}

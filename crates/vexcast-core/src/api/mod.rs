@@ -117,6 +117,8 @@ pub fn router(core: Arc<Core>, ui_dir: Option<PathBuf>) -> Router {
         .route("/alerts/designs/export", post(export_alerts))
         .route("/alerts/designs/import", post(import_alerts))
         .route("/ws", get(ws_handler))
+        .route("/phonecam", get(crate::phonecam::list))
+        .route("/phonecam/ws", get(crate::phonecam::ws))
         .route("/uploads", post(upload).layer(axum::extract::DefaultBodyLimit::disable()));
     #[cfg(feature = "obs")]
     let api = engine::routes(api);

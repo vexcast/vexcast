@@ -1821,6 +1821,20 @@ pub enum ServerEvent {
     Caption(Caption),
     Notification { level: String, message: String },
     AlertSkip,
+    /// Phones sending their camera over the local network right now.
+    PhoneCams(Vec<PhoneCam>),
+}
+
+/// A phone sending its camera to Vexcast over the local network (`/phonecam/ws`).
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct PhoneCam {
+    /// Room id; the browser source showing it has `phonecam.html?id=<room>` in its URL.
+    pub room: String,
+    /// Name of the phone (as it identifies itself to the remote API).
+    pub device: String,
+    /// When it started sending (unix ms).
+    pub since: i64,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
