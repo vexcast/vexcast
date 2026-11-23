@@ -457,7 +457,8 @@ impl Default for AdvancedSettings {
     fn default() -> Self {
         Self {
             process_priority: "normal".into(),
-            renderer: if cfg!(windows) { "d3d11" } else if cfg!(target_os = "macos") { "metal" } else { "opengl" }.into(),
+            // OBS 32 still defaults to OpenGL on macOS (its Metal renderer is experimental).
+            renderer: if cfg!(windows) { "d3d11" } else { "opengl" }.into(),
             browser_hw_accel: true,
             hotkey_focus_behavior: "never".into(),
             auto_remux: true,

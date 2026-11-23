@@ -170,18 +170,19 @@ pub unsafe fn startup(config_dir: &Path, locale: &str) -> anyhow::Result<String>
     Ok(string(sys::obs_get_version_string()))
 }
 
-pub fn graphics_module(renderer: &str) -> &'static str {
+pub fn graphics_module(renderer: &str) -> String {
     if cfg!(windows) {
-        if renderer == "opengl" {
-            "libobs-opengl"
-        } else {
-            "libobs-d3d11"
-        }
-    } else if cfg!(target_os = "macos") && renderer == "metal" {
-        "libobs-metal"
-    } else {
-        "libobs-opengl"
+        return if renderer == "opengl" { "libobs-opengl" } else { "libobs-d3d11" }.into();
     }
+    if cfg!(target_os = "macos") {
+        // libobs appends ".so" to names without an extension, so macOS needs the full file
+        // name (as the OBS app does). Prefer the copy next to the binary (flat runtime layout);
+        // inside Vexcast.app dyld finds it in Contents/Frameworks through libobs' rpath.
+        let file = if renderer == "metal" { "libobs-metal.dylib" } else { "libobs-opengl.dylib" };
+        let local = runtime_dir().join(file);
+        return if local.is_file() { local.to_string_lossy().into_owned() } else { file.into() };
+    }
+    "libobs-opengl".into()
 }
 
 pub fn video_format(s: &str) -> sys::video_format {
@@ -218,7 +219,7 @@ pub fn scale_type(s: &str) -> sys::obs_scale_type {
 
 /// obs_reset_video. Returns the libobs status code (0 = success).
 pub unsafe fn reset_video(v: &VideoSettings, renderer: &str) -> i32 {
-    let gm = cstr(graphics_module(renderer));
+    let gm = cstr(&graphics_module(renderer));
     let mut ovi: sys::obs_video_info = std::mem::zeroed();
     ovi.graphics_module = gm.as_ptr();
     ovi.fps_num = v.fps_num.max(1);
