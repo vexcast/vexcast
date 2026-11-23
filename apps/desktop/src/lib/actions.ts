@@ -6,8 +6,8 @@ import { getT } from "@/i18n";
 import { confirmDialog, openDialog, promptDialog } from "./dialogs";
 import { fmt } from "./format";
 import { usePrefs } from "./prefs";
-import { act, api, editingScene, editingSceneUuid, findItem, flattenItems, mapScene, useStore } from "./store";
-import { exitApp, pickSaveFile, revealPath } from "./tauri";
+import { act, api, editingScene, editingSceneUuid, errorMessage, findItem, flattenItems, mapScene, useStore } from "./store";
+import { exitApp, openExternal, pickSaveFile, revealPath } from "./tauri";
 
 const st = () => useStore.getState().state!;
 
@@ -256,6 +256,19 @@ export async function toggleRecording() {
     return act((c) => c.stopRecording());
   }
   return act((c) => c.startRecording());
+}
+
+/** Twitch clip of the last seconds of the stream, with a link to edit it. */
+export async function createClip() {
+  const c = useStore.getState().client;
+  if (!c) return;
+  const t = getT();
+  try {
+    const clip = await c.createClip();
+    toast.success(t.controls.clipCreated, { description: clip.url, action: { label: t.controls.openClip, onClick: () => openExternal(clip.editUrl || clip.url) } });
+  } catch (e) {
+    toast.error(errorMessage(e));
+  }
 }
 
 export function toggleReplayBuffer() {

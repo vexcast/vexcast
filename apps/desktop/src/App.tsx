@@ -1,4 +1,6 @@
 import { RestartDialog } from "@/components/dialogs/restart-dialog";
+import { PostStreamDialog } from "@/components/dialogs/post-stream-dialog";
+import { SystemChecksBanner } from "@/components/layout/system-checks-banner";
 import { ReportsPage } from "@/components/pages/reports-page";
 import { PreflightDialog } from "@/components/dialogs/preflight-dialog";
 import { Loader2, PlugZap, RefreshCw } from "lucide-react";
@@ -165,6 +167,7 @@ function Shell() {
   return (
     <div className="flex h-full flex-col">
       <MenuBar />
+      <SystemChecksBanner />
       <div className="flex min-h-0 flex-1">
         <NavRail />
         <main className="min-w-0 flex-1 overflow-hidden">
@@ -197,6 +200,7 @@ export function App() {
           <InteractDialog />
           <AboutDialog />
           <ReleaseNotesDialog />
+          <PostStreamDialog />
           <CommandPalette />
           <StreamInfoDialog />
           <FirstRunWizard />

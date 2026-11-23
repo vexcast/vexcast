@@ -97,6 +97,10 @@ pub fn router(core: Arc<Core>, ui_dir: Option<PathBuf>) -> Router {
         .route("/ai/test", post(ai_test))
         .route("/chat/translate", post(chat_translate))
         .route("/chat/summary", post(chat_summary))
+        .route("/autoconfig", post(autoconfig))
+        .route("/system/checks", get(system_checks))
+        .route("/system/checks/{id}/fix", post(system_fix))
+        .route("/twitch/clip", post(twitch_clip))
         .route("/sessions", get(sessions_list))
         .route("/sessions/{id}", get(session_get).delete(session_delete))
         .route("/sessions/{id}/insights", post(session_insights))
@@ -731,6 +735,19 @@ async fn chat_translate(State(core): State<St>, Json(b): Json<TranslateBody>) ->
     Ok(Json(json!({ "text": translated })))
 }
 
+async fn twitch_clip(State(core): State<St>) -> ApiResult<Json<Value>> {
+    core.oauth.create_clip().await.map(Json).map_err(ApiError::from)
+}
+async fn system_checks(State(core): State<St>) -> Json<Vec<crate::system::SystemCheck>> {
+    Json(crate::system::checks(&core))
+}
+async fn system_fix(Path(id): Path<String>) -> ApiResult<Json<Value>> {
+    crate::system::fix(&id).map_err(ApiError::from)?;
+    Ok(Json(json!({ "ok": true })))
+}
+async fn autoconfig(State(core): State<St>) -> ApiResult<Json<crate::autoconfig::AutoConfig>> {
+    crate::autoconfig::run(&core).await.map(Json).map_err(ApiError::from)
+}
 async fn sessions_list(State(core): State<St>) -> Json<Value> {
     Json(json!(core.sessions.list()))
 }

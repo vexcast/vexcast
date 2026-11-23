@@ -97,7 +97,7 @@ Collections are stored in `%APPDATA%\vexcast\scenes\*.json` in the same format a
 
 ## macOS and Linux
 
-**macOS (Apple Silicon)**: install the Xcode command line tools and `brew install simde` (header used by the libobs bindings), then:
+**macOS** (Apple Silicon; set `VEXCAST_OBS_ARCH=intel` on an Intel Mac): install the Xcode command line tools and `brew install simde` (header used by the libobs bindings), then:
 
 ```bash
 node scripts/fetch-obs-runtime.mjs obs-runtime-macos target/release   # libobs.framework, dylibs, PlugIns/ from the official OBS DMG
@@ -105,8 +105,10 @@ export LIBOBS_PATH="$PWD/obs-runtime-macos"
 cargo run --release -p vexcast-server -- --port 7499 --ui-dir apps/desktop/dist
 ```
 
-To build the app: `cd apps/desktop && pnpm tauri build --bundles app --config src-tauri/tauri.no-updater.conf.json`, then `node scripts/package-macos.mjs --app target/release/bundle/macos/Vexcast.app --runtime obs-runtime-macos --out dist-macos --version <x.y.z>` copies the OBS runtime into `Contents/Frameworks` and `Contents/PlugIns`, signs it ad-hoc and makes the DMG and the updater archive. Inside the app, libobs loads its plugins from `Contents/PlugIns` on its own.
+To build the app: `cd apps/desktop && pnpm tauri build --bundles app --config src-tauri/tauri.no-updater.conf.json`, then `node scripts/package-macos.mjs --app target/release/bundle/macos/Vexcast.app --runtime obs-runtime-macos --out dist-macos --version <x.y.z>` copies the OBS runtime into `Contents/Frameworks` and `Contents/PlugIns`, signs it (ad-hoc, or with `APPLE_SIGNING_IDENTITY` and notarized with `APPLE_ID`/`APPLE_PASSWORD`/`APPLE_TEAM_ID`) and makes the DMG and the updater archive. Inside the app, libobs loads its plugins from `Contents/PlugIns` on its own.
 
-**Linux**: install OBS Studio 32 from the official PPA (`ppa:obsproject/obs-studio`) plus `libclang-dev pkg-config libwebkit2gtk-4.1-dev libayatana-appindicator3-dev librsvg2-dev patchelf`. The engine links the system libobs through `pkg-config`; `pnpm tauri build --bundles deb` makes a `.deb` that depends on `obs-studio`.
+**Linux**: install OBS Studio 32 from the official PPA (`ppa:obsproject/obs-studio`) plus `libclang-dev pkg-config libwebkit2gtk-4.1-dev libayatana-appindicator3-dev librsvg2-dev patchelf`. The engine links the system libobs through `pkg-config`; `pnpm tauri build --bundles deb` makes a `.deb` that depends on `obs-studio`. For the AppImage, `APPIMAGE_EXTRACT_AND_RUN=1 pnpm tauri build --bundles appimage`, then `scripts/package-appimage.sh target/release/bundle/appimage/*.AppImage Vexcast.AppImage` adds the installed OBS (plugins, browser source, data and their libraries) so it runs without OBS on the user's system.
+
+**Third-party OBS plugins**: with Settings › Advanced › OBS plugins on, the engine also loads plugins from `<data dir>/obs-plugins/<name>/bin/64bit` (`<name>.plugin` on macOS) and OBS Studio's shared plugin folder (`%ProgramData%\obs-studio\plugins`, `~/Library/Application Support/obs-studio/plugins`, `~/.config/obs-studio/plugins`). Bundled modules always win over same-named copies, and a plugin that crashes while loading is turned off on the next start (`<data dir>/obs-plugin-loading` holds its name while it loads).
 
 Without libobs, build with `--no-default-features`: the API, chat, alerts and AI work, but the video engine shows as unavailable.

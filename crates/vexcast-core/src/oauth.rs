@@ -15,7 +15,7 @@ use std::time::Duration;
 
 pub const PLATFORMS: [&str; 3] = ["twitch", "kick", "youtube"];
 
-const TWITCH_SCOPES: &str = "chat:read chat:edit channel:read:stream_key channel:manage:broadcast moderator:read:followers channel:read:subscriptions bits:read moderator:manage:chat_messages";
+const TWITCH_SCOPES: &str = "chat:read chat:edit channel:read:stream_key channel:manage:broadcast moderator:read:followers channel:read:subscriptions bits:read moderator:manage:chat_messages clips:edit";
 const KICK_SCOPES: &str = "user:read channel:read channel:write chat:write streamkey:read events:subscribe";
 const YOUTUBE_SCOPES: &str = "https://www.googleapis.com/auth/youtube.force-ssl";
 
@@ -556,6 +556,37 @@ impl OAuth {
     }
 
     /// Live viewers right now (None when the channel is offline).
+    /// Twitch clip of the last seconds of the live stream: {id, url, editUrl}.
+    pub async fn create_clip(&self) -> anyhow::Result<Value> {
+        let core = self.core()?;
+        let t = self.access("twitch").await?;
+        let relink = "Vuelve a conectar tu cuenta de Twitch en Destinos para dar permiso de crear clips";
+        if !t.scopes.is_empty() && !t.scopes.iter().any(|s| s == "clips:edit") {
+            anyhow::bail!("{relink}");
+        }
+        let r = core
+            .http
+            .post("https://api.twitch.tv/helix/clips")
+            .query(&[("broadcaster_id", t.user_id.as_str())])
+            .header("Client-Id", client_id("twitch"))
+            .bearer_auth(&t.access_token)
+            .send()
+            .await?;
+        let status = r.status();
+        let v: Value = r.json().await.unwrap_or_default();
+        match status.as_u16() {
+            200..=299 => {}
+            401 | 403 => anyhow::bail!("{relink}"),
+            404 => anyhow::bail!("Twitch solo crea clips mientras estás en directo"),
+            _ => anyhow::bail!("Twitch no pudo crear el clip: {}", v["message"].as_str().unwrap_or(status.as_str())),
+        }
+        let id = v["data"][0]["id"].as_str().unwrap_or_default().to_string();
+        if id.is_empty() {
+            anyhow::bail!("Twitch no devolvió el clip");
+        }
+        Ok(json!({ "id": id, "url": format!("https://clips.twitch.tv/{id}"), "editUrl": v["data"][0]["edit_url"].as_str().unwrap_or_default() }))
+    }
+
     pub async fn viewer_count(&self, platform: &str) -> anyhow::Result<Option<u64>> {
         let core = self.core()?;
         let t = self.access(platform).await?;

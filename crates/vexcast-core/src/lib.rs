@@ -8,6 +8,7 @@ pub mod ai;
 pub mod alert_pack;
 pub mod alerts;
 pub mod api;
+pub mod autoconfig;
 pub mod bot;
 pub mod chat;
 pub mod core;
@@ -34,6 +35,7 @@ pub mod util;
 pub mod viewers;
 pub mod sessions;
 pub mod songs;
+pub mod system;
 pub mod widgets;
 
 use std::path::PathBuf;

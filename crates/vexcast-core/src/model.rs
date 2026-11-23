@@ -1655,7 +1655,7 @@ pub use crate::obs::model::{
 // ---------------------------------------------------------------- macros
 
 /// One action of a macro. `kind`: scene {scene} · stream {action: start|stop} · record
-/// {action: start|stop} · replay (save the replay buffer) · chat {text} · title {title, category?}
+/// {action: start|stop} · replay (save the replay buffer) · clip (Twitch clip) · chat {text} · title {title, category?}
 /// · tts {text} · mute {source, muted?: bool (omitted = toggle)} · visibility {scene, item,
 /// visible?} · alert {type} · wait {ms}.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Default)]
@@ -1823,6 +1823,8 @@ pub enum ServerEvent {
     AlertSkip,
     /// Phones sending their camera over the local network right now.
     PhoneCams(Vec<PhoneCam>),
+    /// A stream just ended and its report was saved.
+    SessionEnded { id: String, title: String, summary: crate::sessions::Summary, dropped_pct: f64 },
 }
 
 /// A phone sending its camera to Vexcast over the local network (`/phonecam/ws`).

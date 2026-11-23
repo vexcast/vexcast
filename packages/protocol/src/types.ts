@@ -965,6 +965,34 @@ export interface AppState {
  * buffer) · chat {text} · title {title, category?} · tts {text} · mute {source, muted?} (omitted =
  * toggle) · visibility {scene, item, visible?} · alert {type} · wait {ms}
  */
+/** GET /system/checks: things about the system the user may have to act on. */
+export interface SystemCheck {
+  id: string;
+  level: "info" | "warn" | "error";
+  title: string;
+  detail: string;
+  /** Label of the button that fixes it (POST /system/checks/:id/fix), if there is one. */
+  fix: string | null;
+}
+
+/** POST /autoconfig: measured upload speed and the recommended stream settings. */
+export interface AutoConfig {
+  /** Measured upload speed (kbps). */
+  uploadKbps: number;
+  /** Best video encoder available (hardware first). */
+  encoder: string;
+  hardware: boolean;
+  /** Enabled destinations (services) the recommendation accounts for. */
+  destinations: string[];
+  videoKbps: number;
+  audioKbps: number;
+  width: number;
+  height: number;
+  fps: number;
+  /** "upload": limited by the connection; "platform": by a service's maximum bitrate. */
+  limitedBy: "upload" | "platform";
+}
+
 /** Stream reports (analytics). */
 export interface SessionSummary {
   durationMs: number;
@@ -1026,7 +1054,7 @@ export interface HealthReport {
   ts?: number;
 }
 
-export type MacroStepKind = "scene" | "stream" | "record" | "replay" | "chat" | "title" | "tts" | "mute" | "visibility" | "alert" | "wait" | "counter" | "countdown";
+export type MacroStepKind = "scene" | "stream" | "record" | "replay" | "clip" | "chat" | "title" | "tts" | "mute" | "visibility" | "alert" | "wait" | "counter" | "countdown";
 
 /** A number shown on stream (deaths, wins…) changed from chat, macros or the app. */
 export interface Counter {
@@ -1146,7 +1174,8 @@ export type ServerEvent =
   | { type: "caption"; data: Caption }
   | { type: "notification"; data: { level: "info" | "success" | "warning" | "error"; message: string } }
   | { type: "alert_skip" } // the current alert was skipped (stop its visuals/audio)
-  | { type: "phone_cams"; data: PhoneCam[] }; // phones sending their camera over the local network right now
+  | { type: "phone_cams"; data: PhoneCam[] } // phones sending their camera over the local network right now
+  | { type: "session_ended"; data: { id: string; title: string; summary: SessionSummary; droppedPct: number } }; // a stream ended and its report was saved
 
 /** A phone sending its camera to Vexcast over the local network (`/phonecam/ws`). */
 export interface PhoneCam {

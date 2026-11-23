@@ -1,4 +1,6 @@
 import type {
+  SystemCheck,
+  AutoConfig,
   ObsPlugins,
   HealthReport,
   SessionListItem,
@@ -296,6 +298,11 @@ export class VexcastClient {
   /** Translate a chat message (kept and broadcast as chat_translated). text null = already in that language. */
   translateChat = (id: string, to?: string) => this.post<{ text: string | null }>("/chat/translate", { id, to });
   /** Stream reports: newest first (the live one included while streaming). */
+  autoconfig = () => this.post<AutoConfig>("/autoconfig");
+  systemChecks = () => this.get<SystemCheck[]>("/system/checks");
+  fixSystemCheck = (id: string) => this.post<{ ok: boolean }>(`/system/checks/${encodeURIComponent(id)}/fix`);
+  /** Twitch clip of the last seconds of the live stream. */
+  createClip = () => this.post<{ id: string; url: string; editUrl: string }>("/twitch/clip");
   listSessions = () => this.get<SessionListItem[]>("/sessions");
   getSession = (id: string) => this.get<StreamSession>(`/sessions/${encodeURIComponent(id)}`);
   deleteSession = (id: string) => this.del<void>(`/sessions/${encodeURIComponent(id)}`);

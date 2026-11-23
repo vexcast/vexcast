@@ -20,6 +20,20 @@ pnpm --filter @vexcast/desktop tauri signer generate -w vexcast-updater.key
 
 Then replace `plugins.updater.pubkey` in `tauri.conf.json` with the contents of `vexcast-updater.key.pub`.
 
+## Optional: code signing
+
+Add these repository secrets and the release signs the apps; without them it still builds everything.
+
+| Secret | What |
+|---|---|
+| `WINDOWS_CERTIFICATE`, `WINDOWS_CERTIFICATE_PASSWORD` | Code-signing certificate (`.pfx`, base64) for the Windows installer: no SmartScreen warning. |
+| `APPLE_CERTIFICATE`, `APPLE_CERTIFICATE_PASSWORD` | "Developer ID Application" certificate (`.p12`, base64) from an Apple Developer account. |
+| `APPLE_ID`, `APPLE_PASSWORD`, `APPLE_TEAM_ID` | Apple ID, an app-specific password and the team ID, to notarize: macOS opens the app without asking. |
+
+## Test the release first
+
+**Actions → Release → Run workflow** (with "Dry run" checked) builds every package into a draft release called `dry-run-<run id>` that is never published. Check the files and `latest.json`, then delete that draft.
+
 ## Every release
 
 Bump the version in all packages:
@@ -48,7 +62,7 @@ git push && git push --tags
 
 The workflow:
 1. Creates a draft release.
-2. Builds the installers for **Windows** (with FFmpeg bundled), **macOS** (Apple Silicon and Intel) and **Linux** (AppImage, deb and rpm), signs the update packages and uploads `latest.json`.
+2. Builds the installers for **Windows**, **macOS** (Apple Silicon and Intel) and **Linux** (AppImage and deb), all with the OBS engine except the deb (it uses the system OBS), signs the update packages and uploads `latest.json` with every platform.
 3. Builds the **Android APK** of the remote control app and the **headless server** for each OS.
 4. Publishes the release.
 

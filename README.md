@@ -33,6 +33,7 @@ Vexcast runs on **libobs**, the same core as OBS Studio, so capture and quality 
 - **Recording** (hybrid MP4, MKV, MOV…), pause, file splitting, **replay buffer**, **virtual camera**, screenshots and **global hotkeys**.
 - **Preview quality** from a light 640 px / 15 fps up to full canvas resolution at 60 fps.
 - **OBS-compatible scene collections**: import your OBS Studio scenes in one click.
+- **Third-party OBS plugins** (Move Transition, NVIDIA effects…): turn them on in Settings › Advanced. A plugin that crashes on load is turned off automatically.
 
 ### 📡 Free, local multistreaming
 - Stream to **Twitch, YouTube, Kick, TikTok, Facebook, X, Trovo** or any RTMP(S)/SRT server, all at once.
@@ -40,6 +41,8 @@ Vexcast runs on **libobs**, the same core as OBS Studio, so capture and quality 
 - Each destination **reconnects on its own**: if one drops, the rest keep going.
 - Pick the hardware encoder you have (**NVENC, QuickSync, AMF, VideoToolbox**) or let Vexcast detect it; with none, it uses x264.
 - Live status of every destination: bitrate, reconnects and errors.
+- **Automatic setup**: measures your upload and recommends bitrate, resolution and FPS for the destinations you have on.
+- **Twitch clips** from the command palette, a macro or the phone, and a **summary when the stream ends** (viewers, chat, follows, dropped frames) with a full report.
 
 ### 💬 Unified chat and bot
 - **Twitch, YouTube and Kick** in a single chat with badges and colors.
@@ -102,13 +105,15 @@ Download the latest version from **[Releases](https://github.com/vexcast/vexcast
 |---|---|---|
 | Windows 10/11 (64-bit) | `Vexcast_x.y.z_x64-setup.exe` | Includes the OBS Studio 32.1 engine |
 | macOS 12+ (Apple Silicon) | `Vexcast_x.y.z_aarch64.dmg` | Includes the OBS Studio 32.1 engine |
+| macOS 12+ (Intel) | `Vexcast_x.y.z_x86_64.dmg` | Includes the OBS Studio 32.1 engine |
+| Linux (64-bit, any distro) | `Vexcast_x.y.z_amd64.AppImage` | Includes the OBS Studio 32.1 engine; updates itself |
 | Linux (Ubuntu/Debian, 64-bit) | `Vexcast_x.y.z_amd64.deb` | Uses OBS Studio 32 from its official PPA |
 | Android | `vexcast-remote-x.y.z.apk` | Remote control app |
 | Headless server | `vexcast-server-windows-x64.zip` | Open `http://localhost:7420/app/` |
 
 > **Windows SmartScreen**: the installer isn't signed yet; click "More info → Run anyway".
-> **macOS**: the app isn't notarized yet. The first time, open it, then go to **System Settings → Privacy & Security** and click **Open Anyway**.
-> **Linux**: add the OBS PPA first (`sudo add-apt-repository ppa:obsproject/obs-studio`), then `sudo apt install ./Vexcast_x.y.z_amd64.deb`. Updates are manual on Linux for now.
+> **macOS**: if macOS says it can't verify the app, open it once, then go to **System Settings → Privacy & Security** and click **Open Anyway**.
+> **Linux**: the AppImage runs anywhere: `chmod +x Vexcast_x.y.z_amd64.AppImage` and open it. For the `.deb`, add the OBS PPA first (`sudo add-apt-repository ppa:obsproject/obs-studio`), then `sudo apt install ./Vexcast_x.y.z_amd64.deb`; it's updated by installing the new `.deb`.
 
 The interface is in Spanish by default and also available in English.
 

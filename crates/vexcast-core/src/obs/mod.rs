@@ -549,6 +549,9 @@ mod stub {
         pub fn plugins(&self) -> ObsPlugins {
             ObsPlugins::default()
         }
+        pub fn best_stream_encoder(&self) -> String {
+            "obs_x264".into()
+        }
         pub fn status(&self) -> EngineStatus {
             EngineStatus { error: Some("Compilado sin el motor de OBS".into()), server_time: crate::model::now_ms(), ..Default::default() }
         }

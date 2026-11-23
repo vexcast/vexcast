@@ -80,6 +80,15 @@ fn read_services_json(engine: &Engine) -> Value {
 }
 
 impl Engine {
+    /// The best video encoder this PC has (hardware first, x264 otherwise).
+    pub fn best_stream_encoder(&self) -> String {
+        if self.is_ready() {
+            best_video_encoder()
+        } else {
+            "obs_x264".into()
+        }
+    }
+
     pub fn source_types(&self) -> anyhow::Result<Vec<SourceType>> {
         self.require_ready()?;
         let mut out: Vec<SourceType> = unsafe {

@@ -53,6 +53,10 @@ async fn step(core: &Arc<Core>, st: &MacroStep) -> anyhow::Result<()> {
             }
         },
         "replay" => eng(core, |e| e.save_replay()).await?,
+        "clip" => {
+            let c = core.oauth.create_clip().await?;
+            core.notify("success", format!("Clip creado: {}", c["url"].as_str().unwrap_or_default()));
+        }
         "counter" => {
             let id = s(v, "counter");
             let delta = v["delta"].as_i64().unwrap_or(1);

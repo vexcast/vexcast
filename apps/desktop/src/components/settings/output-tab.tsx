@@ -10,6 +10,7 @@ import { useCatalogEntry } from "@/lib/catalog";
 import { isTauri, pickFolder } from "@/lib/tauri";
 import { EncoderSettings, encoderOptions } from "./encoder-settings";
 import { FormRow, NumberField, SelectField, Section, SwitchRow } from "./form";
+import { AutoConfigSection } from "./autoconfig-section";
 import { useSettings } from "./settings-context";
 
 function Tracks({ value, onChange, single }: { value: number; onChange: (v: number) => void; single?: boolean }) {
@@ -58,6 +59,7 @@ export function OutputTab() {
         </TabsList>
 
         <TabsContent value="streaming" className="grid gap-8">
+          <AutoConfigSection />
           <Section title={o.videoEncoder}>
             <FormRow label={o.videoEncoder}>
               <SelectField value={d.streamEncoder} onChange={(v) => upd({ streamEncoder: v, streamEncoderSettings: {} })} options={videoOpts} />

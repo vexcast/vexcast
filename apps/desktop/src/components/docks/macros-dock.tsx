@@ -17,7 +17,7 @@ import { cn } from "@/lib/utils";
 import { Dock, ToolButton } from "./dock";
 
 const EMPTY_COUNTERS: import("@vexcast/protocol").Counter[] = [];
-const KINDS: MacroStepKind[] = ["scene", "title", "chat", "stream", "record", "replay", "tts", "mute", "visibility", "alert", "counter", "countdown", "wait"];
+const KINDS: MacroStepKind[] = ["scene", "title", "chat", "stream", "record", "replay", "clip", "tts", "mute", "visibility", "alert", "counter", "countdown", "wait"];
 const COLORS = ["", "#ef4444", "#f59e0b", "#22c55e", "#06b6d4", "#3b82f6", "#a855f7", "#ec4899"];
 const ALERTS: AlertType[] = ["follow", "subscription", "gift_sub", "raid", "bits", "superchat", "donation", "member", "host"];
 const EMPTY_MACROS: Macro[] = [];

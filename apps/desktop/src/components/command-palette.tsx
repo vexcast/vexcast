@@ -26,6 +26,7 @@ import {
   Webcam,
   Wrench,
   ChartNoAxesCombined,
+  Scissors,
 } from "lucide-react";
 import { useEffect } from "react";
 import {
@@ -44,6 +45,7 @@ import {
   checkForUpdates,
   toggleRecording,
   toggleReplayBuffer,
+  createClip,
   toggleStreaming,
   toggleStudioMode,
   toggleVirtualCam,
@@ -245,6 +247,12 @@ function PaletteItems() {
             ? t.controls.stopReplay
             : t.controls.startReplay}
         </CommandItem>
+        {status.streaming && (
+          <CommandItem value={t.controls.createClip} keywords={["clip", "twitch"]} onSelect={() => run(createClip)}>
+            <Scissors />
+            {t.controls.createClip}
+          </CommandItem>
+        )}
         <CommandItem
           value={
             status.virtualCamActive

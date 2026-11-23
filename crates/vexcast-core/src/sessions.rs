@@ -137,16 +137,18 @@ impl Sessions {
         }
     }
 
-    fn finish(&self, mut l: Live) {
+    /// Close the live session; returns it when it was long enough to keep.
+    fn finish(&self, mut l: Live) -> Option<Session> {
         let s = &mut l.session;
         s.ended_at = Some(now_ms());
         compute(s);
         // Too short to mean anything (a test or a false start).
         if s.summary.duration_ms < 60_000 && s.samples.len() < 2 {
             let _ = std::fs::remove_file(self.path(&s.id));
-            return;
+            return None;
         }
         self.save(s);
+        Some(l.session)
     }
 
     pub fn list(&self) -> Vec<Value> {
@@ -254,7 +256,7 @@ pub async fn run(core: Arc<Core>) {
         tokio::time::sleep(Duration::from_secs(5)).await;
         if core.is_stopping() {
             if let Some(l) = core.sessions.live.lock().take() {
-                core.sessions.finish(l);
+                let _ = core.sessions.finish(l);
             }
             return;
         }
@@ -275,8 +277,10 @@ pub async fn run(core: Arc<Core>) {
             continue;
         }
         if !live && active {
-            if let Some(l) = core.sessions.live.lock().take() {
-                core.sessions.finish(l);
+            let done = core.sessions.live.lock().take().and_then(|l| core.sessions.finish(l));
+            if let Some(s) = done {
+                let dropped = if s.samples.is_empty() { 0.0 } else { s.samples.iter().map(|x| x.dropped).sum::<f64>() / s.samples.len() as f64 };
+                core.emit(ServerEvent::SessionEnded { id: s.id, title: s.title, summary: s.summary, dropped_pct: (dropped * 10.0).round() / 10.0 });
             }
             continue;
         }

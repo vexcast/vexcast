@@ -1,3 +1,4 @@
+import { showPostStream } from "@/components/dialogs/post-stream-dialog";
 import { create } from "zustand";
 import { toast } from "sonner";
 import type { HealthReport, AlertEvent, AppState, AudioLevel, ChatMessage, SceneInfo, SceneItem, ServerEvent, Stats, Uuid, VexcastClient } from "@vexcast/protocol";
@@ -182,6 +183,9 @@ function handleEvent(ev: ServerEvent) {
       break;
     case "notification":
       notify(ev.data.level, ev.data.message);
+      break;
+    case "session_ended":
+      showPostStream(ev.data);
       break;
     default:
       break;
