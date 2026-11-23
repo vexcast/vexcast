@@ -12,7 +12,7 @@ import { fmt } from "@/lib/format";
 import { renderMarkdown } from "@/lib/markdown";
 import { GitHubIcon, VexcastMark } from "@/lib/platforms";
 import { useStore } from "@/lib/store";
-import { GITHUB_URL, isTauri, KOFI_URL, openExternal, RELEASES_URL } from "@/lib/tauri";
+import { canSelfUpdate, GITHUB_URL, isTauri, KOFI_URL, openExternal, RELEASES_URL } from "@/lib/tauri";
 import { installTauriUpdate } from "@/lib/updater";
 
 type Phase = "download" | "install" | "restart";
@@ -23,7 +23,7 @@ export function useUpdateInstaller() {
   const releaseUrl = useStore((s) => s.state?.update.releaseUrl ?? null);
   const [progress, setProgress] = useState<{ p: number | null; phase: Phase } | null>(null);
   const install = async () => {
-    if (!isTauri()) {
+    if (!isTauri() || !(await canSelfUpdate())) {
       openExternal(releaseUrl ?? RELEASES_URL);
       return;
     }

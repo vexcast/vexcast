@@ -1,16 +1,23 @@
-# Builds the Windows installer and the macOS (Apple Silicon) app, both with the OBS runtime
-# that powers the Vexcast engine, the Linux .deb, the headless server, and the Android remote APK, and
-# publishes them to a GitHub Release with the `latest.json` manifest used by the in-app updater.
+# Builds the Windows installer, the macOS apps (Apple Silicon and Intel) and the Linux AppImage,
+# all with the OBS runtime that powers the Vexcast engine, plus the Linux .deb, the headless
+# server and the Android remote APK, and publishes them to a GitHub Release with the
+# `latest.json` manifest used by the in-app updater.
 #
-# Trigger: push a tag like v0.2.0 (see docs/RELEASING.md), or run manually.
+# Trigger: push a tag like v0.2.0 (see docs/RELEASING.md), or run it by hand. A manual run is a
+# dry run by default: everything is built and uploaded to a draft release named
+# dry-run-<run id> that is never published (delete it afterwards).
 #
-# Secrets (Settings → Secrets and variables → Actions):
-#   TAURI_SIGNING_PRIVATE_KEY           contents of the updater private key
-#   TAURI_SIGNING_PRIVATE_KEY_PASSWORD  its password (may be empty)
-# Without them the installer is still built, but without auto-update signatures.
+# Secrets (Settings → Secrets and variables → Actions), all optional:
+#   TAURI_SIGNING_PRIVATE_KEY, TAURI_SIGNING_PRIVATE_KEY_PASSWORD
+#       updater key. Without it the installers are built without auto-update signatures.
+#   WINDOWS_CERTIFICATE (base64 .pfx), WINDOWS_CERTIFICATE_PASSWORD
+#       code-signing certificate for the Windows installer (no SmartScreen warning).
+#   APPLE_CERTIFICATE (base64 .p12 with the "Developer ID Application" certificate),
+#   APPLE_CERTIFICATE_PASSWORD, APPLE_ID, APPLE_PASSWORD (app-specific), APPLE_TEAM_ID
+#       sign and notarize the macOS apps. Without them they are signed ad-hoc and users allow
+#       them once in Privacy & Security.
 #
-# The Linux .deb links the system libobs (OBS PPA). The macOS app is signed ad-hoc (no Apple
-# Developer ID yet), so users allow it once in Privacy & Security.
+# The Linux .deb links the system libobs (OBS PPA); the AppImage carries its own.
 
 name: Release
 
@@ -18,6 +25,11 @@ on:
   push:
     tags: ["v*"]
   workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Dry run: build everything into a draft release that is never published"
+        type: boolean
+        default: true
 
 permissions:
   contents: write
@@ -28,12 +40,19 @@ jobs:
     outputs:
       release_id: ${{ steps.release.outputs.id }}
       version: ${{ steps.version.outputs.version }}
+      tag: ${{ steps.version.outputs.tag }}
     steps:
       - uses: actions/checkout@v4
       - id: version
         run: |
           v=$(node -p "require('./apps/desktop/package.json').version")
           echo "version=$v" >> "$GITHUB_OUTPUT"
+          if [ "${{ inputs.dry_run }}" = "true" ]; then
+            echo "tag=dry-run-${{ github.run_id }}" >> "$GITHUB_OUTPUT"
+            echo "title_suffix= (dry run)" >> "$GITHUB_OUTPUT"
+          else
+            echo "tag=v$v" >> "$GITHUB_OUTPUT"
+          fi
           # Every 0.x version is a public beta.
           if [[ "$v" == 0.* ]]; then
             echo "suffix= (Beta)" >> "$GITHUB_OUTPUT"
@@ -42,8 +61,9 @@ jobs:
       - id: release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: v${{ steps.version.outputs.version }}
-          name: Vexcast v${{ steps.version.outputs.version }}${{ steps.version.outputs.suffix }}
+          tag_name: ${{ steps.version.outputs.tag }}
+          target_commitish: ${{ github.sha }}
+          name: Vexcast v${{ steps.version.outputs.version }}${{ steps.version.outputs.suffix }}${{ steps.version.outputs.title_suffix }}
           draft: true
           generate_release_notes: true
           body: |
@@ -51,8 +71,9 @@ jobs:
 
             ## Downloads
             - **Windows 10/11 (64-bit)**: `Vexcast_${{ steps.version.outputs.version }}_x64-setup.exe`. Includes the OBS Studio 32.1 engine (display, window and game capture, browser, filters, NVENC/AMF/QSV).
-            - **macOS 12+ (Apple Silicon)**: `Vexcast_${{ steps.version.outputs.version }}_aarch64.dmg`. Includes the OBS Studio 32.1 engine. The app isn't notarized yet: the first time, open it, then go to **System Settings → Privacy & Security** and click **Open Anyway**.
-            - **Linux (Ubuntu/Debian, 64-bit)**: `Vexcast_${{ steps.version.outputs.version }}_amd64.deb`. Uses the system OBS Studio 32: first add the official PPA (`sudo add-apt-repository ppa:obsproject/obs-studio`), then `sudo apt install ./Vexcast_${{ steps.version.outputs.version }}_amd64.deb`. Updates are manual on Linux for now.
+            - **macOS 12+**: `Vexcast_${{ steps.version.outputs.version }}_aarch64.dmg` (Apple Silicon) or `Vexcast_${{ steps.version.outputs.version }}_x86_64.dmg` (Intel). Includes the OBS Studio 32.1 engine. If macOS says it can't verify the app, open it once, then go to **System Settings → Privacy & Security** and click **Open Anyway**.
+            - **Linux (64-bit, any distro)**: `Vexcast_${{ steps.version.outputs.version }}_amd64.AppImage`. Includes the OBS Studio 32.1 engine and updates itself. Make it executable (`chmod +x`) and run it.
+            - **Linux (Ubuntu/Debian .deb)**: `Vexcast_${{ steps.version.outputs.version }}_amd64.deb`. Uses the system OBS Studio 32: first add the official PPA (`sudo add-apt-repository ppa:obsproject/obs-studio`), then `sudo apt install ./Vexcast_${{ steps.version.outputs.version }}_amd64.deb`. Updated by installing the new .deb.
             - **Android (remote control)**: `vexcast-remote-${{ steps.version.outputs.version }}.apk`
             - **Headless server (Windows)**: `vexcast-server-windows-x64.zip` — open `http://localhost:7420/app/`
 
@@ -88,6 +109,22 @@ jobs:
           if [ -n "$KEY" ]; then echo "args=" >> "$GITHUB_OUTPUT"; else
             echo "::warning::TAURI_SIGNING_PRIVATE_KEY is not set: building without updater artifacts"
             echo "args=--config src-tauri/tauri.no-updater.conf.json" >> "$GITHUB_OUTPUT"; fi
+      - name: Code-signing certificate available?
+        id: wincert
+        shell: pwsh
+        env:
+          CERT: ${{ secrets.WINDOWS_CERTIFICATE }}
+          CERT_PASSWORD: ${{ secrets.WINDOWS_CERTIFICATE_PASSWORD }}
+        run: |
+          if (-not $env:CERT) { "args=" >> $env:GITHUB_OUTPUT; Write-Output "No certificate: the installer is not code-signed"; exit 0 }
+          $pfx = Join-Path $env:RUNNER_TEMP "cert.pfx"
+          [IO.File]::WriteAllBytes($pfx, [Convert]::FromBase64String($env:CERT))
+          $pw = ConvertTo-SecureString $env:CERT_PASSWORD -AsPlainText -Force
+          $c = Import-PfxCertificate -FilePath $pfx -CertStoreLocation Cert:\CurrentUser\My -Password $pw
+          Remove-Item $pfx
+          $conf = @{ bundle = @{ windows = @{ certificateThumbprint = $c.Thumbprint; digestAlgorithm = "sha256"; timestampUrl = "http://timestamp.digicert.com" } } } | ConvertTo-Json -Depth 5
+          [IO.File]::WriteAllText("$PWD/apps/desktop/src-tauri/tauri.sign.conf.json", $conf)
+          "args=--config src-tauri/tauri.sign.conf.json" >> $env:GITHUB_OUTPUT
       - uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -96,20 +133,27 @@ jobs:
         with:
           projectPath: apps/desktop
           releaseId: ${{ needs.create-release.outputs.release_id }}
-          args: --bundles nsis --config src-tauri/tauri.obs-runtime.conf.json ${{ steps.sign.outputs.args }}
+          args: --bundles nsis --config src-tauri/tauri.obs-runtime.conf.json ${{ steps.sign.outputs.args }} ${{ steps.wincert.outputs.args }}
           includeUpdaterJson: true
 
   desktop-macos:
     needs: create-release
-    runs-on: macos-latest # Apple Silicon
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { runner: macos-latest, arch: aarch64, obs: apple }
+          - { runner: macos-15-intel, arch: x86_64, obs: intel }
+    runs-on: ${{ matrix.runner }}
     env:
       VEXCAST_TWITCH_CLIENT_ID: ${{ vars.VEXCAST_TWITCH_CLIENT_ID }}
       VEXCAST_KICK_CLIENT_ID: ${{ vars.VEXCAST_KICK_CLIENT_ID }}
       VEXCAST_YOUTUBE_CLIENT_ID: ${{ vars.VEXCAST_YOUTUBE_CLIENT_ID }}
       VEXCAST_YOUTUBE_CLIENT_SECRET: ${{ vars.VEXCAST_YOUTUBE_CLIENT_SECRET }}
+      VEXCAST_OBS_ARCH: ${{ matrix.obs }}
       LIBOBS_PATH: ${{ github.workspace }}/obs-runtime-macos
       MACOSX_DEPLOYMENT_TARGET: "12.0"
-    timeout-minutes: 60
+    timeout-minutes: 75
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
@@ -122,22 +166,43 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - name: libobs headers dependency (SIMDe)
         run: brew install simde
-      - name: OBS runtime (Apple Silicon)
+      - name: OBS runtime
         run: node scripts/fetch-obs-runtime.mjs obs-runtime-macos
       - name: Build Vexcast.app
         working-directory: apps/desktop
         run: pnpm tauri build --bundles app --config src-tauri/tauri.no-updater.conf.json
+      - name: Developer ID certificate (optional)
+        env:
+          CERT: ${{ secrets.APPLE_CERTIFICATE }}
+          CERT_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+        run: |
+          [ -n "$CERT" ] || { echo "No Apple certificate: the app is signed ad-hoc"; exit 0; }
+          kc="$RUNNER_TEMP/signing.keychain-db"; pw=$(openssl rand -hex 16)
+          echo "$CERT" | base64 --decode > "$RUNNER_TEMP/cert.p12"
+          security create-keychain -p "$pw" "$kc"
+          security set-keychain-settings -lut 21600 "$kc"
+          security unlock-keychain -p "$pw" "$kc"
+          security import "$RUNNER_TEMP/cert.p12" -P "$CERT_PASSWORD" -A -t cert -f pkcs12 -k "$kc"
+          security set-key-partition-list -S apple-tool:,apple: -k "$pw" "$kc" >/dev/null
+          security list-keychains -d user -s "$kc" $(security list-keychains -d user | tr -d '"')
+          rm "$RUNNER_TEMP/cert.p12"
+          id=$(security find-identity -v -p codesigning "$kc" | grep -o '"Developer ID Application[^"]*"' | head -n1 | tr -d '"')
+          echo "APPLE_SIGNING_IDENTITY=$id" >> "$GITHUB_ENV"
+          echo "Signing as: $id"
       - name: Add the OBS runtime, sign, DMG and updater archive
         env:
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
         run: >
           node scripts/package-macos.mjs --app target/release/bundle/macos/Vexcast.app
-          --runtime obs-runtime-macos --out dist-macos --arch aarch64
+          --runtime obs-runtime-macos --out dist-macos --arch ${{ matrix.arch }}
           --version ${{ needs.create-release.outputs.version }}
       - uses: softprops/action-gh-release@v2
         with:
-          tag_name: v${{ needs.create-release.outputs.version }}
+          tag_name: ${{ needs.create-release.outputs.tag }}
           draft: true
           files: dist-macos/*
 
@@ -149,7 +214,7 @@ jobs:
       VEXCAST_KICK_CLIENT_ID: ${{ vars.VEXCAST_KICK_CLIENT_ID }}
       VEXCAST_YOUTUBE_CLIENT_ID: ${{ vars.VEXCAST_YOUTUBE_CLIENT_ID }}
       VEXCAST_YOUTUBE_CLIENT_SECRET: ${{ vars.VEXCAST_YOUTUBE_CLIENT_SECRET }}
-    timeout-minutes: 60
+    timeout-minutes: 75
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
@@ -163,19 +228,31 @@ jobs:
         run: |
           sudo add-apt-repository -y ppa:obsproject/obs-studio
           sudo apt-get update
-          sudo apt-get install -y obs-studio libclang-dev pkg-config libwebkit2gtk-4.1-dev libayatana-appindicator3-dev librsvg2-dev patchelf
+          sudo apt-get install -y obs-studio libclang-dev pkg-config libwebkit2gtk-4.1-dev libayatana-appindicator3-dev librsvg2-dev patchelf file
           pkg-config --modversion libobs
       - run: pnpm install --frozen-lockfile
-      - name: Build the .deb
+      - name: Build the .deb and the AppImage
         working-directory: apps/desktop
-        run: pnpm tauri build --bundles deb --config src-tauri/tauri.no-updater.conf.json
-      - name: Rename
-        run: cp target/release/bundle/deb/*.deb "Vexcast_${{ needs.create-release.outputs.version }}_amd64.deb"
+        env:
+          APPIMAGE_EXTRACT_AND_RUN: "1"
+        run: pnpm tauri build --bundles deb,appimage --config src-tauri/tauri.no-updater.conf.json
+      - name: Bundle OBS in the AppImage, rename, sign the update
+        env:
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+        run: |
+          v=${{ needs.create-release.outputs.version }}
+          mkdir -p dist-linux
+          cp target/release/bundle/deb/*.deb "dist-linux/Vexcast_${v}_amd64.deb"
+          scripts/package-appimage.sh target/release/bundle/appimage/*.AppImage "dist-linux/Vexcast_${v}_amd64.AppImage"
+          if [ -n "$TAURI_SIGNING_PRIVATE_KEY" ]; then
+            pnpm --filter @vexcast/desktop exec tauri signer sign "$PWD/dist-linux/Vexcast_${v}_amd64.AppImage"
+          fi
       - uses: softprops/action-gh-release@v2
         with:
-          tag_name: v${{ needs.create-release.outputs.version }}
+          tag_name: ${{ needs.create-release.outputs.tag }}
           draft: true
-          files: Vexcast_${{ needs.create-release.outputs.version }}_amd64.deb
+          files: dist-linux/*
 
   server-windows:
     needs: create-release
@@ -208,7 +285,7 @@ jobs:
           Compress-Archive -Path "$out/*" -DestinationPath vexcast-server-windows-x64.zip
       - uses: softprops/action-gh-release@v2
         with:
-          tag_name: v${{ needs.create-release.outputs.version }}
+          tag_name: ${{ needs.create-release.outputs.tag }}
           draft: true
           files: vexcast-server-windows-x64.zip
 
@@ -236,7 +313,7 @@ jobs:
         run: cp apps/mobile/android/app/build/outputs/apk/release/app-release.apk vexcast-remote-${{ needs.create-release.outputs.version }}.apk
       - uses: softprops/action-gh-release@v2
         with:
-          tag_name: v${{ needs.create-release.outputs.version }}
+          tag_name: ${{ needs.create-release.outputs.tag }}
           draft: true
           files: vexcast-remote-${{ needs.create-release.outputs.version }}.apk
 
@@ -246,39 +323,50 @@ jobs:
     if: ${{ !cancelled() && needs.create-release.result == 'success' }}
     runs-on: ubuntu-22.04
     steps:
-      - name: Add macOS to the updater manifest and publish the release
+      - name: Add macOS and Linux to the updater manifest, publish the release
         uses: actions/github-script@v7
         with:
           script: |
-            // tauri-action writes latest.json from the Windows job; add the macOS build to it.
+            // tauri-action writes latest.json from the Windows job; add the other platforms.
             const { owner, repo } = context.repo;
             const release_id = ${{ needs.create-release.outputs.release_id }};
             const version = "${{ needs.create-release.outputs.version }}";
-            const assets = await github.paginate(github.rest.repos.listReleaseAssets, { owner, repo, release_id });
-            const manifest = assets.find((a) => a.name === "latest.json");
-            const macSig = assets.find((a) => a.name === `Vexcast_${version}_aarch64.app.tar.gz.sig`);
+            const tag = "${{ needs.create-release.outputs.tag }}";
+            const dryRun = "${{ inputs.dry_run }}" === "true";
+            const list = () => github.paginate(github.rest.repos.listReleaseAssets, { owner, repo, release_id });
             const download = async (a) =>
               Buffer.from((await github.rest.repos.getReleaseAsset({ owner, repo, asset_id: a.id, headers: { accept: "application/octet-stream" } })).data).toString("utf8");
-            if (manifest && macSig) {
+            const assets = await list();
+            const manifest = assets.find((a) => a.name === "latest.json");
+            if (manifest) {
               const json = JSON.parse(await download(manifest));
               json.platforms = json.platforms || {};
-              json.platforms["darwin-aarch64"] = {
-                signature: (await download(macSig)).trim(),
-                url: `https://github.com/${owner}/${repo}/releases/download/v${version}/Vexcast_${version}_aarch64.app.tar.gz`,
+              const extra = {
+                "darwin-aarch64": `Vexcast_${version}_aarch64.app.tar.gz`,
+                "darwin-x86_64": `Vexcast_${version}_x86_64.app.tar.gz`,
+                "linux-x86_64": `Vexcast_${version}_amd64.AppImage`,
               };
+              for (const [platform, file] of Object.entries(extra)) {
+                const sig = assets.find((a) => a.name === `${file}.sig`);
+                if (!sig) {
+                  core.warning(`${platform} not added to latest.json (no ${file}.sig)`);
+                  continue;
+                }
+                json.platforms[platform] = { signature: (await download(sig)).trim(), url: `https://github.com/${owner}/${repo}/releases/download/${tag}/${file}` };
+                core.info(`latest.json: added ${platform}`);
+              }
               await github.rest.repos.deleteReleaseAsset({ owner, repo, asset_id: manifest.id });
               await github.rest.repos.uploadReleaseAsset({
                 owner, repo, release_id, name: "latest.json",
                 data: JSON.stringify(json, null, 2),
                 headers: { "content-type": "application/json" },
               });
-              core.info("latest.json now includes darwin-aarch64");
             } else {
-              core.warning(`macOS not added to latest.json (manifest: ${!!manifest}, macOS signature: ${!!macSig})`);
+              core.warning("No latest.json (the Windows build failed or the updater key isn't set)");
             }
-            await github.rest.repos.updateRelease({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              release_id: ${{ needs.create-release.outputs.release_id }},
-              draft: false,
-            })
+            core.info(`Release assets:\n${(await list()).map((a) => `${a.name} (${Math.round(a.size / 1e6)} MB)`).sort().join("\n")}`);
+            if (dryRun) {
+              core.notice(`Dry run: draft release ${tag} left unpublished. Delete it when done.`);
+              return;
+            }
+            await github.rest.repos.updateRelease({ owner, repo, release_id, draft: false });

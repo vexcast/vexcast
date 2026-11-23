@@ -12,6 +12,17 @@ export async function getCoreInfo(): Promise<CoreInfo> {
   return invoke<CoreInfo>("get_core_info");
 }
 
+/** False when this install can't update itself (Linux .deb): the update is a manual download. */
+export async function canSelfUpdate(): Promise<boolean> {
+  if (!isTauri()) return false;
+  try {
+    const { invoke } = await import("@tauri-apps/api/core");
+    return await invoke<boolean>("can_self_update");
+  } catch {
+    return true;
+  }
+}
+
 /** Open a URL in the system browser. */
 export async function openExternal(url: string): Promise<void> {
   if (isTauri()) {

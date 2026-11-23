@@ -11,3 +11,4 @@ apps/desktop/src-tauri/gen/
 .env
 apps/desktop/src-tauri/obs-runtime/
 target-e2e/
+apps/desktop/src-tauri/tauri.sign.conf.json

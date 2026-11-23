@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>NSCameraUsageDescription</key>
+  <string>Vexcast uses your camera in video capture sources.</string>
+  <key>NSMicrophoneUsageDescription</key>
+  <string>Vexcast uses your microphone in audio capture sources.</string>
+  <key>NSLocalNetworkUsageDescription</key>
+  <string>Vexcast talks to the Vexcast Remote app and phone cameras on your local network.</string>
+  <key>NSScreenCaptureUsageDescription</key>
+  <string>Vexcast captures your screen and windows in display and window capture sources.</string>
+</dict>
+</plist>

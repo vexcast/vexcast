@@ -25,6 +25,13 @@ fn get_core_info(info: tauri::State<'_, CoreInfo>) -> CoreInfo {
     info.inner().clone()
 }
 
+/// Whether the built-in updater can replace this install. On Linux only the AppImage can
+/// update itself; the .deb is updated by downloading the new package.
+#[tauri::command]
+fn can_self_update() -> bool {
+    !cfg!(target_os = "linux") || std::env::var_os("APPIMAGE").is_some()
+}
+
 /// Bring the existing window to the front (used by single-instance).
 fn focus_main(app: &tauri::AppHandle) {
     if let Some(w) = app.get_webview_window("main") {
@@ -83,7 +90,7 @@ pub fn run() {
             app.manage(CoreState(Mutex::new(Some(handle))));
             Ok(())
         })
-        .invoke_handler(tauri::generate_handler![get_core_info])
+        .invoke_handler(tauri::generate_handler![get_core_info, can_self_update])
         .build(tauri::generate_context!())
         .expect("error while building the Vexcast app");
 
