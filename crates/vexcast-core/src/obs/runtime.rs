@@ -151,22 +151,11 @@ pub unsafe fn startup(config_dir: &Path, locale: &str) -> anyhow::Result<String>
             }
         }
     }
+    // macOS: nothing to add. libobs finds its data inside libobs.framework/Resources, and
+    // obs_startup already registers <main bundle>/PlugIns/%module%.plugin — Contents/PlugIns in
+    // Vexcast.app, <exe dir>/PlugIns for a bare binary. Adding it again loads every plugin twice.
     #[cfg(target_os = "macos")]
-    {
-        // libobs finds its own data inside libobs.framework/Resources, and obs_startup already
-        // adds <app>/Contents/PlugIns/%module%.plugin (add_default_module_paths). Only a binary
-        // outside an app bundle (vexcast-server, dev builds) needs the runtime's PlugIns folder.
-        if !dir.ends_with("Contents/MacOS") {
-            let plugins = dir.join("PlugIns");
-            if plugins.is_dir() {
-                let base = slash(&plugins);
-                sys::obs_add_module_path(
-                    cstr(&format!("{base}%module%.plugin/Contents/MacOS/")).as_ptr(),
-                    cstr(&format!("{base}%module%.plugin/Contents/Resources/")).as_ptr(),
-                );
-            }
-        }
-    }
+    let _ = &dir;
     Ok(string(sys::obs_get_version_string()))
 }
 

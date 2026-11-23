@@ -84,13 +84,19 @@ jobs:
       - name: Smoke test (headless server with the engine)
         run: |
           ./target/release/vexcast-server --port 7499 --data-dir "$RUNNER_TEMP/vexcast" --ui-dir apps/desktop/dist > server.log 2>&1 &
-          for i in $(seq 1 60); do curl -sf http://127.0.0.1:7499/api/v1/health >/dev/null && break; sleep 1; done
-          curl -sf http://127.0.0.1:7499/api/v1/state | node -e "let s='';process.stdin.on('data',d=>s+=d).on('end',()=>{const st=JSON.parse(s).status||{};console.log('engine ready:',st.ready,'OBS',st.obsVersion)})"
-          curl -sf http://127.0.0.1:7499/api/v1/obs/source-types | node -e "let s='';process.stdin.on('data',d=>s+=d).on('end',()=>console.log('source types:',JSON.parse(s).map(t=>t.id).join(', ')))"
+          # The engine loads its plugins after the API is up: wait for status.ready.
+          ready=""
+          for i in $(seq 1 90); do
+            ready=$(curl -sf http://127.0.0.1:7499/api/v1/state | node -e "let s='';process.stdin.on('data',d=>s+=d).on('end',()=>{try{const st=JSON.parse(s).status||{};if(st.ready)console.log(st.obsVersion)}catch{}})" || true)
+            [ -n "$ready" ] && break; sleep 1
+          done
+          [ -n "$ready" ] || { echo "::error::The libobs engine did not start"; exit 1; }
+          echo "Engine ready, OBS $ready"
+          curl -sf http://127.0.0.1:7499/api/v1/obs/source-types | node -e "let s='';process.stdin.on('data',d=>s+=d).on('end',()=>console.log('Source types:',JSON.parse(s).map(t=>t.id).join(', ')))"
           kill %1 || true
-      - name: Server log
+      - name: Server log (errors and warnings)
         if: always()
-        run: tail -n 80 server.log || true
+        run: grep -E "error|ERROR|warning|WARN|reset_video|libobs|Motor" server.log | head -n 120 || true
       - name: Build Vexcast.app and DMG
         run: |
           (cd apps/desktop && pnpm tauri build --bundles app --config src-tauri/tauri.no-updater.conf.json)
