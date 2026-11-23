@@ -106,6 +106,23 @@ jobs:
           name: vexcast-macos-aarch64
           path: dist-macos/*.dmg
           retention-days: 7
+      - name: Smoke test the packaged app (engine and browser source inside Vexcast.app)
+        run: |
+          app=target/release/bundle/macos/Vexcast.app
+          exe="$app/Contents/MacOS/$(ls "$app/Contents/MacOS" | head -n1)"
+          "$exe" > app.log 2>&1 &
+          ready=""
+          for i in $(seq 1 120); do
+            ready=$(curl -sf http://127.0.0.1:7420/api/v1/state | node -e "let s='';process.stdin.on('data',d=>s+=d).on('end',()=>{try{const st=JSON.parse(s).status||{};if(st.ready)console.log(st.obsVersion)}catch{}})" || true)
+            [ -n "$ready" ] && break; sleep 1
+          done
+          types=$(curl -sf http://127.0.0.1:7420/api/v1/obs/source-types | node -e "let s='';process.stdin.on('data',d=>s+=d).on('end',()=>{try{console.log(JSON.parse(s).map(t=>t.id).join(' '))}catch{}})" || true)
+          kill %1 || true
+          grep -E "error|ERROR|browser|CEF" app.log | head -n 60 || true
+          [ -n "$ready" ] || { echo "::error::The engine did not start inside Vexcast.app"; exit 1; }
+          echo "Engine ready inside Vexcast.app, OBS $ready"
+          echo "Source types: $types"
+          case " $types " in *" browser_source "*) echo "Browser source available";; *) echo "::warning::browser_source is not available inside Vexcast.app";; esac
 
   core-portable:
     name: Core without engine (${{ matrix.os }})
