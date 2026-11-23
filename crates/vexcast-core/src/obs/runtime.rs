@@ -83,10 +83,10 @@ pub fn locale_for(lang: &str) -> &'static str {
     }
 }
 
-// va_list is a plain pointer on Windows and Apple targets, a struct array on Linux x86_64.
-#[cfg(any(windows, target_os = "macos"))]
+// va_list is a plain pointer on Windows and Apple Silicon, a struct array on x86_64 Linux and macOS.
+#[cfg(any(windows, all(target_os = "macos", target_arch = "aarch64")))]
 type VaList = sys::va_list;
-#[cfg(not(any(windows, target_os = "macos")))]
+#[cfg(not(any(windows, all(target_os = "macos", target_arch = "aarch64"))))]
 type VaList = *mut sys::__va_list_tag;
 
 /// libobs' own log handler (we filter in front of it).

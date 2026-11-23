@@ -68,5 +68,6 @@ for f in "$app"/usr/lib/libobs-opengl.so*; do
 done
 
 rm -f "$out"
+chmod 755 "$app"
 ARCH=x86_64 "$tools/appimagetool" --no-appstream "$app" "$out"
 echo "AppImage ready: $out ($(du -h "$out" | cut -f1))"
