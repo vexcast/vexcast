@@ -66,6 +66,34 @@ Vexcast runs on **libobs**, the same core as OBS Studio, so capture and quality 
 
 ---
 
+## 📸 Screenshots
+
+### Desktop
+
+| | |
+|---|---|
+| <img src="docs/screenshots/desktop-studio-mode.png" alt="Studio mode" /> | <img src="docs/screenshots/desktop-alerts-designer.png" alt="Alert designer" /> |
+| Studio mode: preview and program side by side | Alert designer |
+| <img src="docs/screenshots/desktop-destinations.png" alt="Destinations" /> | <img src="docs/screenshots/desktop-chat.png" alt="Unified chat" /> |
+| Destinations and linked accounts | Unified chat |
+| <img src="docs/screenshots/desktop-bot.png" alt="Chat bot" /> | <img src="docs/screenshots/desktop-ai.png" alt="AI hub" /> |
+| Chat bot | AI hub |
+| <img src="docs/screenshots/desktop-remote.png" alt="Phone pairing" /> | <img src="docs/screenshots/desktop-settings.png" alt="Settings" /> |
+| Phone pairing | Settings |
+| <img src="docs/screenshots/desktop-wizard.png" alt="First-run wizard" /> | <img src="docs/screenshots/desktop-settings-video.png" alt="Video settings" /> |
+| First-run wizard | Video settings and vertical canvas |
+
+### Vexcast Remote (mobile)
+
+| | | | |
+|---|---|---|---|
+| <img src="docs/screenshots/mobile-dashboard.png" alt="Dashboard" width="200" /> | <img src="docs/screenshots/mobile-scenes.png" alt="Scenes" width="200" /> | <img src="docs/screenshots/mobile-deck.png" alt="Stream Deck" width="200" /> | <img src="docs/screenshots/mobile-audio.png" alt="Audio mixer" width="200" /> |
+| Dashboard | Scenes | Stream Deck | Audio |
+| <img src="docs/screenshots/mobile-alerts.png" alt="Alerts" width="200" /> | <img src="docs/screenshots/mobile-settings.png" alt="Settings" width="200" /> | <img src="docs/screenshots/mobile-connect.png" alt="Pairing" width="200" /> | <img src="docs/screenshots/mobile-connect-manual.png" alt="Manual connection" width="200" /> |
+| Alerts and TTS | Settings | Pairing | Manual connection |
+
+---
+
 ## 📥 Installation
 
 Download the latest version from **[Releases](https://github.com/vexcast/vexcast/releases/latest)**:

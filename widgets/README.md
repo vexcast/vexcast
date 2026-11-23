@@ -17,8 +17,6 @@ transparent background, served by the Vexcast core at
   browser.
 - `index.html` is a gallery with live demos of every widget.
 
-Screenshots: `docs/screenshots/widget-*.png`.
-
 ## Common query parameters
 
 | Parameter | Default | Description |
