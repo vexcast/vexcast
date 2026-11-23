@@ -53,6 +53,10 @@ jobs:
           else
             echo "tag=v$v" >> "$GITHUB_OUTPUT"
           fi
+          # What's new: docs/changelog/v<version>.md, if there is one.
+          if [ -f "docs/changelog/v$v.md" ]; then
+            { echo 'changes<<VEXCAST_EOF'; cat "docs/changelog/v$v.md"; echo; echo 'VEXCAST_EOF'; } >> "$GITHUB_OUTPUT"
+          fi
           # Every 0.x version is a public beta.
           if [[ "$v" == 0.* ]]; then
             echo "suffix= (Beta)" >> "$GITHUB_OUTPUT"
@@ -68,6 +72,8 @@ jobs:
           generate_release_notes: true
           body: |
             ${{ steps.version.outputs.notice }}
+
+            ${{ steps.version.outputs.changes }}
 
             ## Downloads
             - **Windows 10/11 (64-bit)**: `Vexcast_${{ steps.version.outputs.version }}_x64-setup.exe`. Includes the OBS Studio 32.1 engine (display, window and game capture, browser, filters, NVENC/AMF/QSV).
@@ -319,7 +325,8 @@ jobs:
 
   publish:
     needs: [create-release, desktop-windows, desktop-macos, desktop-linux, server-windows, android]
-    # Publish even if one artifact failed, so a single broken runner doesn't block the release.
+    # Runs even if a build failed (to update latest.json), but only publishes when every build succeeded:
+    # otherwise the release stays a draft until the failed jobs are re-run.
     if: ${{ !cancelled() && needs.create-release.result == 'success' }}
     runs-on: ubuntu-22.04
     steps:
@@ -333,6 +340,8 @@ jobs:
             const version = "${{ needs.create-release.outputs.version }}";
             const tag = "${{ needs.create-release.outputs.tag }}";
             const dryRun = "${{ inputs.dry_run }}" === "true";
+            const results = ${{ toJSON(needs) }};
+            const failed = Object.entries(results).filter(([, n]) => n.result !== "success").map(([job]) => job);
             const list = () => github.paginate(github.rest.repos.listReleaseAssets, { owner, repo, release_id });
             const download = async (a) =>
               Buffer.from((await github.rest.repos.getReleaseAsset({ owner, repo, asset_id: a.id, headers: { accept: "application/octet-stream" } })).data).toString("utf8");
@@ -367,6 +376,10 @@ jobs:
             core.info(`Release assets:\n${(await list()).map((a) => `${a.name} (${Math.round(a.size / 1e6)} MB)`).sort().join("\n")}`);
             if (dryRun) {
               core.notice(`Dry run: draft release ${tag} left unpublished. Delete it when done.`);
+              return;
+            }
+            if (failed.length) {
+              core.setFailed(`Not published: ${failed.join(", ")} failed. Re-run the failed jobs and this job publishes the release.`);
               return;
             }
             await github.rest.repos.updateRelease({ owner, repo, release_id, draft: false });

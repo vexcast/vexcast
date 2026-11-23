@@ -10,6 +10,9 @@ use serde::Serialize;
 use tauri::{Manager, RunEvent};
 use vexcast_core::{CoreConfig, CoreHandle};
 
+#[cfg(desktop)]
+mod updater;
+
 /// Port and API token of the in-process core, handed to the UI.
 #[derive(Clone, Serialize)]
 pub struct CoreInfo {
@@ -56,6 +59,26 @@ fn use_bundled_ffmpeg(app: &tauri::AppHandle) {
     }
 }
 
+#[cfg(desktop)]
+fn handlers() -> impl Fn(tauri::ipc::Invoke) -> bool + Send + Sync + 'static {
+    tauri::generate_handler![
+        get_core_info,
+        can_self_update,
+        updater::update_details,
+        updater::update_open,
+        updater::update_install,
+        updater::update_restart,
+        updater::update_skip,
+        updater::update_close,
+        updater::update_open_page
+    ]
+}
+
+#[cfg(not(desktop))]
+fn handlers() -> impl Fn(tauri::ipc::Invoke) -> bool + Send + Sync + 'static {
+    tauri::generate_handler![get_core_info, can_self_update]
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     let mut builder = tauri::Builder::default();
@@ -88,9 +111,14 @@ pub fn run() {
             log::info!("Vexcast core running on port {}", handle.port);
             app.manage(CoreInfo { port: handle.port, token: handle.token.clone() });
             app.manage(CoreState(Mutex::new(Some(handle))));
+            #[cfg(desktop)]
+            {
+                app.manage(updater::UpdaterState::default());
+                updater::spawn_startup_check(app.handle().clone());
+            }
             Ok(())
         })
-        .invoke_handler(tauri::generate_handler![get_core_info, can_self_update])
+        .invoke_handler(handlers())
         .build(tauri::generate_context!())
         .expect("error while building the Vexcast app");
 

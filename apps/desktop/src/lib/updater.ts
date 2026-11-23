@@ -1,35 +1,13 @@
 import { isTauri } from "./tauri";
 
 /**
- * Tauri: check → download & install (reporting progress 0..1, or null when the
- * size is unknown) → relaunch. Returns false when no update is available.
+ * Desktop app: checks now and opens the update window (run by the Rust side, see
+ * src-tauri/src/updater.rs). Returns false when there's no update.
  */
-export async function installTauriUpdate(onProgress: (p: number | null, phase: "download" | "install" | "restart") => void): Promise<boolean> {
+export async function openUpdateWindow(): Promise<boolean> {
   if (!isTauri()) return false;
-  const { check } = await import("@tauri-apps/plugin-updater");
-  const update = await check();
-  if (!update) return false;
-  let total = 0;
-  let done = 0;
-  await update.downloadAndInstall((ev) => {
-    switch (ev.event) {
-      case "Started":
-        total = ev.data.contentLength ?? 0;
-        onProgress(total ? 0 : null, "download");
-        break;
-      case "Progress":
-        done += ev.data.chunkLength;
-        onProgress(total ? Math.min(1, done / total) : null, "download");
-        break;
-      case "Finished":
-        onProgress(1, "install");
-        break;
-    }
-  });
-  onProgress(1, "restart");
-  const { relaunch } = await import("@tauri-apps/plugin-process");
-  await relaunch();
-  return true;
+  const { invoke } = await import("@tauri-apps/api/core");
+  return invoke<boolean>("update_open");
 }
 
 /** Tauri-side check (signature-verified updater). Returns the new version or null. */

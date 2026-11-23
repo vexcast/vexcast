@@ -1,0 +1,111 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Vexcast</title>
+    <!-- Update popup. Plain HTML/JS on purpose: it shares nothing with the main UI, so it works even if that doesn't load. -->
+    <style>
+      :root {
+        color-scheme: dark;
+        --bg: #07080f;
+        --card: #0f1120;
+        --border: #232640;
+        --text: #e8e9f3;
+        --muted: #9095b0;
+        --accent: #7c6cf7;
+        --accent-2: #8b5cf6;
+        --warn: #f5b84b;
+        --error: #f26d6d;
+      }
+      * { box-sizing: border-box; }
+      html, body { height: 100%; margin: 0; }
+      body {
+        background: var(--bg);
+        color: var(--text);
+        font: 14px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+        display: flex;
+        flex-direction: column;
+        padding: 24px;
+        gap: 16px;
+        user-select: none;
+        -webkit-user-select: none;
+      }
+      header { display: flex; align-items: center; gap: 14px; }
+      header img { width: 44px; height: 44px; }
+      h1 { font-size: 18px; margin: 0; font-weight: 650; }
+      .versions { color: var(--muted); font-size: 13px; margin-top: 2px; }
+      .versions b { color: var(--text); font-weight: 600; }
+      .notes {
+        flex: 1;
+        min-height: 0;
+        overflow: auto;
+        background: var(--card);
+        border: 1px solid var(--border);
+        border-radius: 10px;
+        padding: 12px 16px;
+        user-select: text;
+        -webkit-user-select: text;
+        font-size: 13px;
+      }
+      .notes h2, .notes h3, .notes h4 { font-size: 14px; margin: 12px 0 4px; }
+      .notes h2:first-child, .notes h3:first-child, .notes h4:first-child, .notes p:first-child { margin-top: 0; }
+      .notes ul { margin: 4px 0; padding-left: 20px; }
+      .notes p { margin: 6px 0; }
+      .notes code { background: #1b1e33; border-radius: 4px; padding: 0 4px; font-size: 12px; }
+      .notes a { color: #a99cff; }
+      .empty { color: var(--muted); }
+      .notice { border-radius: 8px; padding: 8px 12px; font-size: 13px; display: none; }
+      .notice.warn { display: block; background: rgba(245, 184, 75, 0.1); border: 1px solid rgba(245, 184, 75, 0.35); color: var(--warn); }
+      .notice.error { display: block; background: rgba(242, 109, 109, 0.1); border: 1px solid rgba(242, 109, 109, 0.35); color: var(--error); user-select: text; -webkit-user-select: text; }
+      .progress { display: none; flex-direction: column; gap: 6px; }
+      .progress.on { display: flex; }
+      .bar { height: 8px; background: #1b1e33; border-radius: 99px; overflow: hidden; }
+      .bar > div { height: 100%; width: 0; background: linear-gradient(90deg, var(--accent-2), var(--accent)); border-radius: 99px; transition: width 0.15s; }
+      .bar.indeterminate > div { width: 35%; animation: slide 1.2s ease-in-out infinite; }
+      @keyframes slide { from { margin-left: -35%; } to { margin-left: 100%; } }
+      .progress-label { display: flex; justify-content: space-between; color: var(--muted); font-size: 12px; }
+      footer { display: flex; align-items: center; gap: 8px; }
+      footer .spacer { flex: 1; }
+      button {
+        font: inherit;
+        font-size: 13px;
+        border-radius: 8px;
+        padding: 8px 14px;
+        border: 1px solid var(--border);
+        background: var(--card);
+        color: var(--text);
+        cursor: pointer;
+      }
+      button:hover { border-color: #3a3f66; }
+      button.primary { background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 600; }
+      button.primary:hover { background: var(--accent-2); }
+      button.link { background: none; border: none; color: var(--muted); padding: 8px 4px; }
+      button.link:hover { color: var(--text); }
+      button:disabled { opacity: 0.5; cursor: default; }
+      [hidden] { display: none !important; }
+    </style>
+  </head>
+  <body>
+    <header>
+      <img src="logo.svg" alt="" />
+      <div>
+        <h1 id="title">Nueva versión disponible</h1>
+        <div class="versions" id="versions"></div>
+      </div>
+    </header>
+    <div class="notes" id="notes"><span class="empty">…</span></div>
+    <div class="notice" id="notice"></div>
+    <div class="progress" id="progress">
+      <div class="bar" id="bar"><div id="fill"></div></div>
+      <div class="progress-label"><span id="phase"></span><span id="amount"></span></div>
+    </div>
+    <footer id="footer">
+      <button class="link" id="skip"></button>
+      <span class="spacer"></span>
+      <button id="later"></button>
+      <button class="primary" id="install"></button>
+    </footer>
+    <script src="updater.js"></script>
+  </body>
+</html>

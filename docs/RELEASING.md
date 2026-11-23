@@ -36,6 +36,8 @@ Add these repository secrets and the release signs the apps; without them it sti
 
 ## Every release
 
+Write what's new in `docs/changelog/v<version>.md` (optional): it goes at the top of the release notes and the app's update window shows it.
+
 Bump the version in all packages:
 
 ```bash
@@ -64,6 +66,6 @@ The workflow:
 1. Creates a draft release.
 2. Builds the installers for **Windows**, **macOS** (Apple Silicon and Intel) and **Linux** (AppImage and deb), all with the OBS engine except the deb (it uses the system OBS), signs the update packages and uploads `latest.json` with every platform.
 3. Builds the **Android APK** of the remote control app and the **headless server** for each OS.
-4. Publishes the release.
+4. Publishes the release, only if every build succeeded. If one failed (a download timeout, say), the release stays a draft: re-run the failed jobs and it's published then.
 
-Installed apps check `https://github.com/vexcast/vexcast/releases/latest/download/latest.json` on startup and every 6 hours. The mobile app queries the releases API once a day.
+On startup the desktop app checks `https://github.com/vexcast/vexcast/releases/latest/download/latest.json` and, if there's a new version, opens its update window (`src-tauri/src/updater.rs` and `public/updater.html`). That window is run by the Rust side and shares no code with the main UI, so a release whose UI doesn't load can still be replaced by the next one. Set `VEXCAST_UPDATER_FORCE=1` to make it offer the latest release even when it isn't newer (to try the window). The core also checks the releases API every 6 hours for the menu badge. The mobile app queries the releases API once a day.
