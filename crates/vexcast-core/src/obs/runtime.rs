@@ -83,9 +83,10 @@ pub fn locale_for(lang: &str) -> &'static str {
     }
 }
 
-#[cfg(windows)]
+// va_list is a plain pointer on Windows and Apple targets, a struct array on Linux x86_64.
+#[cfg(any(windows, target_os = "macos"))]
 type VaList = sys::va_list;
-#[cfg(not(windows))]
+#[cfg(not(any(windows, target_os = "macos")))]
 type VaList = *mut sys::__va_list_tag;
 
 /// libobs' own log handler (we filter in front of it).
@@ -152,9 +153,19 @@ pub unsafe fn startup(config_dir: &Path, locale: &str) -> anyhow::Result<String>
     }
     #[cfg(target_os = "macos")]
     {
-        let res = dir.join("../Resources");
-        sys::obs_add_data_path(cstr(&slash(&res.join("data/libobs"))).as_ptr());
-        sys::obs_add_module_path(cstr(&slash(&dir.join("../PlugIns"))).as_ptr(), cstr(&format!("{}%module%/", slash(&res.join("data/obs-plugins")))).as_ptr());
+        // libobs finds its own data inside libobs.framework/Resources, and obs_startup already
+        // adds <app>/Contents/PlugIns/%module%.plugin (add_default_module_paths). Only a binary
+        // outside an app bundle (vexcast-server, dev builds) needs the runtime's PlugIns folder.
+        if !dir.ends_with("Contents/MacOS") {
+            let plugins = dir.join("PlugIns");
+            if plugins.is_dir() {
+                let base = slash(&plugins);
+                sys::obs_add_module_path(
+                    cstr(&format!("{base}%module%.plugin/Contents/MacOS/")).as_ptr(),
+                    cstr(&format!("{base}%module%.plugin/Contents/Resources/")).as_ptr(),
+                );
+            }
+        }
     }
     Ok(string(sys::obs_get_version_string()))
 }

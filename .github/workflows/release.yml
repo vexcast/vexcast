@@ -1,6 +1,6 @@
-# Builds the Windows installer (with the OBS runtime that powers the Vexcast engine),
-# the headless server, and the Android remote APK, and publishes them to a GitHub
-# Release with the `latest.json` manifest used by the in-app updater.
+# Builds the Windows installer and the macOS (Apple Silicon) app, both with the OBS runtime
+# that powers the Vexcast engine, the Linux .deb, the headless server, and the Android remote APK, and
+# publishes them to a GitHub Release with the `latest.json` manifest used by the in-app updater.
 #
 # Trigger: push a tag like v0.2.0 (see docs/RELEASING.md), or run manually.
 #
@@ -9,7 +9,8 @@
 #   TAURI_SIGNING_PRIVATE_KEY_PASSWORD  its password (may be empty)
 # Without them the installer is still built, but without auto-update signatures.
 #
-# macOS and Linux builds of the libobs engine are not published yet.
+# The Linux .deb links the system libobs (OBS PPA). The macOS app is signed ad-hoc (no Apple
+# Developer ID yet), so users allow it once in Privacy & Security.
 
 name: Release
 
@@ -50,10 +51,10 @@ jobs:
 
             ## Downloads
             - **Windows 10/11 (64-bit)**: `Vexcast_${{ steps.version.outputs.version }}_x64-setup.exe`. Includes the OBS Studio 32.1 engine (display, window and game capture, browser, filters, NVENC/AMF/QSV).
+            - **macOS 12+ (Apple Silicon)**: `Vexcast_${{ steps.version.outputs.version }}_aarch64.dmg`. Includes the OBS Studio 32.1 engine. The app isn't notarized yet: the first time, open it, then go to **System Settings → Privacy & Security** and click **Open Anyway**.
+            - **Linux (Ubuntu/Debian, 64-bit)**: `Vexcast_${{ steps.version.outputs.version }}_amd64.deb`. Uses the system OBS Studio 32: first add the official PPA (`sudo add-apt-repository ppa:obsproject/obs-studio`), then `sudo apt install ./Vexcast_${{ steps.version.outputs.version }}_amd64.deb`. Updates are manual on Linux for now.
             - **Android (remote control)**: `vexcast-remote-${{ steps.version.outputs.version }}.apk`
             - **Headless server (Windows)**: `vexcast-server-windows-x64.zip` — open `http://localhost:7420/app/`
-
-            macOS and Linux are coming later.
 
             ☕ Vexcast is free and open source. If it helps you, you can support the project at https://ko-fi.com/emanueldev
 
@@ -97,6 +98,84 @@ jobs:
           releaseId: ${{ needs.create-release.outputs.release_id }}
           args: --bundles nsis --config src-tauri/tauri.obs-runtime.conf.json ${{ steps.sign.outputs.args }}
           includeUpdaterJson: true
+
+  desktop-macos:
+    needs: create-release
+    runs-on: macos-14 # Apple Silicon
+    env:
+      VEXCAST_TWITCH_CLIENT_ID: ${{ vars.VEXCAST_TWITCH_CLIENT_ID }}
+      VEXCAST_KICK_CLIENT_ID: ${{ vars.VEXCAST_KICK_CLIENT_ID }}
+      VEXCAST_YOUTUBE_CLIENT_ID: ${{ vars.VEXCAST_YOUTUBE_CLIENT_ID }}
+      VEXCAST_YOUTUBE_CLIENT_SECRET: ${{ vars.VEXCAST_YOUTUBE_CLIENT_SECRET }}
+      LIBOBS_PATH: ${{ github.workspace }}/obs-runtime-macos
+      MACOSX_DEPLOYMENT_TARGET: "12.0"
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: libobs headers dependency (SIMDe)
+        run: brew install simde
+      - name: OBS runtime (Apple Silicon)
+        run: node scripts/fetch-obs-runtime.mjs obs-runtime-macos
+      - name: Build Vexcast.app
+        working-directory: apps/desktop
+        run: pnpm tauri build --bundles app --config src-tauri/tauri.no-updater.conf.json
+      - name: Add the OBS runtime, sign, DMG and updater archive
+        env:
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+        run: >
+          node scripts/package-macos.mjs --app target/release/bundle/macos/Vexcast.app
+          --runtime obs-runtime-macos --out dist-macos --arch aarch64
+          --version ${{ needs.create-release.outputs.version }}
+      - uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v${{ needs.create-release.outputs.version }}
+          draft: true
+          files: dist-macos/*
+
+  desktop-linux:
+    needs: create-release
+    runs-on: ubuntu-24.04
+    env:
+      VEXCAST_TWITCH_CLIENT_ID: ${{ vars.VEXCAST_TWITCH_CLIENT_ID }}
+      VEXCAST_KICK_CLIENT_ID: ${{ vars.VEXCAST_KICK_CLIENT_ID }}
+      VEXCAST_YOUTUBE_CLIENT_ID: ${{ vars.VEXCAST_YOUTUBE_CLIENT_ID }}
+      VEXCAST_YOUTUBE_CLIENT_SECRET: ${{ vars.VEXCAST_YOUTUBE_CLIENT_SECRET }}
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - name: System packages (OBS from its official PPA, Tauri/WebKitGTK)
+        run: |
+          sudo add-apt-repository -y ppa:obsproject/obs-studio
+          sudo apt-get update
+          sudo apt-get install -y obs-studio libclang-dev pkg-config libwebkit2gtk-4.1-dev libayatana-appindicator3-dev librsvg2-dev patchelf
+          pkg-config --modversion libobs
+      - run: pnpm install --frozen-lockfile
+      - name: Build the .deb
+        working-directory: apps/desktop
+        run: pnpm tauri build --bundles deb --config src-tauri/tauri.no-updater.conf.json
+      - name: Rename
+        run: cp target/release/bundle/deb/*.deb "Vexcast_${{ needs.create-release.outputs.version }}_amd64.deb"
+      - uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v${{ needs.create-release.outputs.version }}
+          draft: true
+          files: Vexcast_${{ needs.create-release.outputs.version }}_amd64.deb
 
   server-windows:
     needs: create-release
@@ -162,15 +241,41 @@ jobs:
           files: vexcast-remote-${{ needs.create-release.outputs.version }}.apk
 
   publish:
-    needs: [create-release, desktop-windows, server-windows, android]
+    needs: [create-release, desktop-windows, desktop-macos, desktop-linux, server-windows, android]
     # Publish even if one artifact failed, so a single broken runner doesn't block the release.
     if: ${{ !cancelled() && needs.create-release.result == 'success' }}
     runs-on: ubuntu-22.04
     steps:
-      - name: Publish the release
+      - name: Add macOS to the updater manifest and publish the release
         uses: actions/github-script@v7
         with:
           script: |
+            // tauri-action writes latest.json from the Windows job; add the macOS build to it.
+            const { owner, repo } = context.repo;
+            const release_id = ${{ needs.create-release.outputs.release_id }};
+            const version = "${{ needs.create-release.outputs.version }}";
+            const assets = await github.paginate(github.rest.repos.listReleaseAssets, { owner, repo, release_id });
+            const manifest = assets.find((a) => a.name === "latest.json");
+            const macSig = assets.find((a) => a.name === `Vexcast_${version}_aarch64.app.tar.gz.sig`);
+            const download = async (a) =>
+              Buffer.from((await github.rest.repos.getReleaseAsset({ owner, repo, asset_id: a.id, headers: { accept: "application/octet-stream" } })).data).toString("utf8");
+            if (manifest && macSig) {
+              const json = JSON.parse(await download(manifest));
+              json.platforms = json.platforms || {};
+              json.platforms["darwin-aarch64"] = {
+                signature: (await download(macSig)).trim(),
+                url: `https://github.com/${owner}/${repo}/releases/download/v${version}/Vexcast_${version}_aarch64.app.tar.gz`,
+              };
+              await github.rest.repos.deleteReleaseAsset({ owner, repo, asset_id: manifest.id });
+              await github.rest.repos.uploadReleaseAsset({
+                owner, repo, release_id, name: "latest.json",
+                data: JSON.stringify(json, null, 2),
+                headers: { "content-type": "application/json" },
+              });
+              core.info("latest.json now includes darwin-aarch64");
+            } else {
+              core.warning(`macOS not added to latest.json (manifest: ${!!manifest}, macOS signature: ${!!macSig})`);
+            }
             await github.rest.repos.updateRelease({
               owner: context.repo.owner,
               repo: context.repo.repo,

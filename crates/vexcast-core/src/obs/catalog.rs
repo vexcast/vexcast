@@ -60,9 +60,13 @@ pub fn best_video_encoder() -> String {
 
 fn read_services_json(engine: &Engine) -> Value {
     // Prefer the auto-updated copy in our module config dir, then the bundled one.
+    let rt = super::runtime::runtime_dir();
     let candidates = [
         engine.data_dir.join("obs-config").join("plugin_config").join("rtmp-services").join("services.json"),
-        super::runtime::runtime_dir().join("data").join("obs-plugins").join("rtmp-services").join("services.json"),
+        rt.join("data").join("obs-plugins").join("rtmp-services").join("services.json"),
+        // macOS: plugin data lives inside the .plugin bundle (Contents/PlugIns in Vexcast.app).
+        rt.join("../PlugIns/rtmp-services.plugin/Contents/Resources/services.json"),
+        rt.join("PlugIns/rtmp-services.plugin/Contents/Resources/services.json"),
         std::path::PathBuf::from("/usr/share/obs/obs-plugins/rtmp-services/services.json"),
     ];
     for c in candidates {

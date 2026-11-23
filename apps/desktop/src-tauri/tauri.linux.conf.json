@@ -1,0 +1,9 @@
+{
+  "bundle": {
+    "linux": {
+      "deb": {
+        "depends": ["ffmpeg", "obs-studio (>= 32.0)"]
+      }
+    }
+  }
+}

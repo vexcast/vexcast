@@ -28,23 +28,78 @@ jobs:
       - name: Build server and desktop shell
         run: cargo build -p vexcast-server
 
-  core-linux-obs:
-    name: Core + libobs engine (Linux, experimental)
+  linux-obs:
+    name: App + libobs engine (Linux)
     runs-on: ubuntu-24.04
-    continue-on-error: true
-    timeout-minutes: 40
+    timeout-minutes: 60
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
-      - name: OBS Studio from the official PPA (libobs + headers)
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - name: OBS Studio from the official PPA (libobs + headers), Tauri/WebKitGTK
         run: |
           sudo add-apt-repository -y ppa:obsproject/obs-studio
           sudo apt-get update
-          sudo apt-get install -y obs-studio libclang-dev pkg-config
+          sudo apt-get install -y obs-studio libclang-dev pkg-config libwebkit2gtk-4.1-dev libayatana-appindicator3-dev librsvg2-dev patchelf
           pkg-config --modversion libobs
-      - name: Build core with the engine
+      - run: pnpm install --frozen-lockfile
+      - name: Build core and server with the engine
         run: cargo build -p vexcast-core -p vexcast-server
+      - name: Build the .deb
+        working-directory: apps/desktop
+        run: pnpm tauri build --bundles deb --config src-tauri/tauri.no-updater.conf.json
+      - uses: actions/upload-artifact@v4
+        with:
+          name: vexcast-linux-amd64-deb
+          path: target/release/bundle/deb/*.deb
+          retention-days: 7
+
+  macos-obs:
+    name: App + libobs engine (macOS Apple Silicon)
+    runs-on: macos-14
+    timeout-minutes: 60
+    env:
+      LIBOBS_PATH: ${{ github.workspace }}/obs-runtime-macos
+      MACOSX_DEPLOYMENT_TARGET: "12.0"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: brew install simde
+      - name: OBS runtime (Apple Silicon)
+        run: node scripts/fetch-obs-runtime.mjs obs-runtime-macos target/release
+      - name: Build the server
+        run: pnpm --filter @vexcast/desktop build && cargo build --release -p vexcast-server
+      - name: Smoke test (headless server with the engine)
+        run: |
+          ./target/release/vexcast-server --port 7499 --data-dir "$RUNNER_TEMP/vexcast" --ui-dir apps/desktop/dist > server.log 2>&1 &
+          for i in $(seq 1 60); do curl -sf http://127.0.0.1:7499/api/v1/health >/dev/null && break; sleep 1; done
+          curl -sf http://127.0.0.1:7499/api/v1/state | node -e "let s='';process.stdin.on('data',d=>s+=d).on('end',()=>{const st=JSON.parse(s).status||{};console.log('engine ready:',st.ready,'OBS',st.obsVersion)})"
+          curl -sf http://127.0.0.1:7499/api/v1/obs/source-types | node -e "let s='';process.stdin.on('data',d=>s+=d).on('end',()=>console.log('source types:',JSON.parse(s).map(t=>t.id).join(', ')))"
+          kill %1 || true
+      - name: Server log
+        if: always()
+        run: tail -n 80 server.log || true
+      - name: Build Vexcast.app and DMG
+        run: |
+          (cd apps/desktop && pnpm tauri build --bundles app --config src-tauri/tauri.no-updater.conf.json)
+          node scripts/package-macos.mjs --app target/release/bundle/macos/Vexcast.app --runtime obs-runtime-macos --out dist-macos --version ci --arch aarch64
+      - uses: actions/upload-artifact@v4
+        with:
+          name: vexcast-macos-aarch64
+          path: dist-macos/*.dmg
+          retention-days: 7
 
   core-portable:
     name: Core without engine (${{ matrix.os }})

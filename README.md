@@ -101,11 +101,14 @@ Download the latest version from **[Releases](https://github.com/vexcast/vexcast
 | System | File | Notes |
 |---|---|---|
 | Windows 10/11 (64-bit) | `Vexcast_x.y.z_x64-setup.exe` | Includes the OBS Studio 32.1 engine |
+| macOS 12+ (Apple Silicon) | `Vexcast_x.y.z_aarch64.dmg` | Includes the OBS Studio 32.1 engine |
+| Linux (Ubuntu/Debian, 64-bit) | `Vexcast_x.y.z_amd64.deb` | Uses OBS Studio 32 from its official PPA |
 | Android | `vexcast-remote-x.y.z.apk` | Remote control app |
 | Headless server | `vexcast-server-windows-x64.zip` | Open `http://localhost:7420/app/` |
 
-> **macOS and Linux** are coming later: the engine already builds against libobs, it still needs packaging.
 > **Windows SmartScreen**: the installer isn't signed yet; click "More info → Run anyway".
+> **macOS**: the app isn't notarized yet. The first time, open it, then go to **System Settings → Privacy & Security** and click **Open Anyway**.
+> **Linux**: add the OBS PPA first (`sudo add-apt-repository ppa:obsproject/obs-studio`), then `sudo apt install ./Vexcast_x.y.z_amd64.deb`. Updates are manual on Linux for now.
 
 The interface is in Spanish by default and also available in English.
 

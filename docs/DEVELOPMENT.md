@@ -97,4 +97,16 @@ Collections are stored in `%APPDATA%\vexcast\scenes\*.json` in the same format a
 
 ## macOS and Linux
 
-The engine builds against libobs via `pkg-config` (Linux) or the OBS framework (macOS). There are no published packages for these platforms yet. Without libobs, build with `--no-default-features`: the API, chat, alerts and AI work, but the video engine shows as unavailable.
+**macOS (Apple Silicon)**: install the Xcode command line tools and `brew install simde` (header used by the libobs bindings), then:
+
+```bash
+node scripts/fetch-obs-runtime.mjs obs-runtime-macos target/release   # libobs.framework, dylibs, PlugIns/ from the official OBS DMG
+export LIBOBS_PATH="$PWD/obs-runtime-macos"
+cargo run --release -p vexcast-server -- --port 7499 --ui-dir apps/desktop/dist
+```
+
+To build the app: `cd apps/desktop && pnpm tauri build --bundles app --config src-tauri/tauri.no-updater.conf.json`, then `node scripts/package-macos.mjs --app target/release/bundle/macos/Vexcast.app --runtime obs-runtime-macos --out dist-macos --version <x.y.z>` copies the OBS runtime into `Contents/Frameworks` and `Contents/PlugIns`, signs it ad-hoc and makes the DMG and the updater archive. Inside the app, libobs loads its plugins from `Contents/PlugIns` on its own.
+
+**Linux**: install OBS Studio 32 from the official PPA (`ppa:obsproject/obs-studio`) plus `libclang-dev pkg-config libwebkit2gtk-4.1-dev libayatana-appindicator3-dev librsvg2-dev patchelf`. The engine links the system libobs through `pkg-config`; `pnpm tauri build --bundles deb` makes a `.deb` that depends on `obs-studio`.
+
+Without libobs, build with `--no-default-features`: the API, chat, alerts and AI work, but the video engine shows as unavailable.
