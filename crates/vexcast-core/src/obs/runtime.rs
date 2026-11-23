@@ -411,8 +411,9 @@ pub unsafe fn load_modules(data_dir: &Path, policy: &PluginPolicy) -> Vec<super:
                 tracing::info!("third-party OBS plugin loaded: {} ({})", m.name, m.bin);
             }
         }
-        // Bundled modules that open but decline to start (no AJA card, no NVIDIA GPU…) are normal.
-        if third || p.error.as_deref().is_some_and(|_| code != 0) {
+        // Bundled modules that open but decline to start (no AJA card, no NVIDIA GPU…) are normal,
+        // and so are libraries next to the plugins that aren't plugins (CEF's on Linux).
+        if third || (code != 0 && code != sys::MODULE_MISSING_EXPORTS) {
             out.push(p);
         }
     }
