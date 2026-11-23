@@ -1,4 +1,4 @@
-import { showPostStream } from "@/components/dialogs/post-stream-dialog";
+import { showPostStream } from "@/lib/post-stream";
 import { create } from "zustand";
 import { toast } from "sonner";
 import type { HealthReport, AlertEvent, AppState, AudioLevel, ChatMessage, SceneInfo, SceneItem, ServerEvent, Stats, Uuid, VexcastClient } from "@vexcast/protocol";

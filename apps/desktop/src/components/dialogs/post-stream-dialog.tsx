@@ -1,25 +1,10 @@
 import { ChartNoAxesCombined } from "lucide-react";
-import { create } from "zustand";
-import type { SessionSummary } from "@vexcast/protocol";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useT } from "@/i18n";
 import { formatDuration } from "@/lib/format";
+import { usePostStream } from "@/lib/post-stream";
 import { goTo } from "@/lib/prefs";
-
-export interface SessionEnded {
-  id: string;
-  title: string;
-  summary: SessionSummary;
-  droppedPct: number;
-}
-
-const usePostStream = create<{ ended: SessionEnded | null }>(() => ({ ended: null }));
-
-/** Called when the core reports that a stream ended (WebSocket `session_ended`). */
-export function showPostStream(ended: SessionEnded) {
-  usePostStream.setState({ ended });
-}
 
 /** Summary shown when a stream ends, with a link to the full report. */
 export function PostStreamDialog() {
