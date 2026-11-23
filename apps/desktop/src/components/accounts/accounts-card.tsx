@@ -18,8 +18,17 @@ const NO_ACCOUNTS: ConnectedAccount[] = [];
 export function AccountAvatar({ account, className }: { account: ConnectedAccount; className?: string }) {
   const name = account.displayName || account.login || "?";
   const initials = name.replace(/^@/, "").slice(0, 2).toUpperCase();
-  return account.avatarUrl ? (
-    <img src={account.avatarUrl} alt="" className={cn("size-9 shrink-0 rounded-full border object-cover", className)} />
+  // Remember which URL failed so a broken picture falls back to initials (and retries if the URL changes).
+  const [failedUrl, setFailedUrl] = useState<string | null>(null);
+  const src = account.avatarUrl && account.avatarUrl !== failedUrl ? account.avatarUrl : null;
+  return src ? (
+    <img
+      src={src}
+      alt=""
+      referrerPolicy="no-referrer"
+      onError={() => setFailedUrl(src)}
+      className={cn("size-9 shrink-0 rounded-full border object-cover", className)}
+    />
   ) : (
     <span className={cn("grid size-9 shrink-0 place-items-center rounded-full border bg-muted text-xs font-semibold text-muted-foreground", className)}>{initials}</span>
   );
