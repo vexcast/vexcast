@@ -451,6 +451,10 @@ pub struct AdvancedSettings {
     pub hotkey_focus_behavior: String,
     pub auto_remux: bool,
     pub confirm_on_exit: bool,
+    /// Load third-party OBS plugins from the plugin folders (takes effect on restart).
+    pub third_party_plugins: bool,
+    /// Plugins (module names) not loaded. A plugin that crashes Vexcast while loading lands here.
+    pub disabled_plugins: Vec<String>,
 }
 
 impl Default for AdvancedSettings {
@@ -463,6 +467,8 @@ impl Default for AdvancedSettings {
             hotkey_focus_behavior: "never".into(),
             auto_remux: true,
             confirm_on_exit: true,
+            third_party_plugins: false,
+            disabled_plugins: vec![],
         }
     }
 }
@@ -566,6 +572,28 @@ pub struct EngineStatus {
     /// Rehearsal: streaming to Twitch without publishing (bandwidth test mode).
     pub rehearsal: bool,
     pub server_time: i64,
+}
+
+/// An OBS module found at startup: bundled modules that failed and every third-party plugin.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Default)]
+#[serde(rename_all = "camelCase")]
+pub struct ObsPlugin {
+    /// Module name (file name without extension).
+    pub name: String,
+    pub path: String,
+    pub third_party: bool,
+    /// loaded · failed · disabled (by the user) · off (third-party plugins are off) · duplicate
+    pub state: String,
+    pub error: Option<String>,
+}
+
+/// GET /obs/plugins
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Default)]
+#[serde(rename_all = "camelCase")]
+pub struct ObsPlugins {
+    /// Where third-party plugins are looked for (the first one is Vexcast's own).
+    pub folders: Vec<String>,
+    pub plugins: Vec<ObsPlugin>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]

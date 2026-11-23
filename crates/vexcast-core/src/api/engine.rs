@@ -72,6 +72,7 @@ async fn install_theme_fonts(State(c): State<St>) -> ApiResult<Json<Value>> {
 
 pub fn routes(r: Router<St>) -> Router<St> {
     r.route("/stats", get(stats))
+        .route("/obs/plugins", get(plugins))
         .route("/obs/source-types", get(source_types))
         .route("/obs/source-types/{kind}/defaults", get(type_defaults))
         .route("/obs/filter-types", get(filter_types))
@@ -183,6 +184,9 @@ fn ok() -> StatusCode {
 
 async fn stats(State(c): State<St>) -> ApiResult<Json<Stats>> {
     eng(&c, |e| Ok(e.stats())).await.map(Json)
+}
+async fn plugins(State(c): State<St>) -> Json<ObsPlugins> {
+    Json(c.engine.plugins())
 }
 async fn source_types(State(c): State<St>) -> ApiResult<Json<Vec<SourceType>>> {
     eng(&c, |e| e.source_types()).await.map(Json)

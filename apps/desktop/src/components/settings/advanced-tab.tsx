@@ -1,6 +1,7 @@
 import type { AdvancedSettings, VideoSettings } from "@vexcast/protocol";
 import { useT } from "@/i18n";
 import { FormRow, NumberField, SelectField, Section, SwitchRow } from "./form";
+import { PluginsSection } from "./plugins-section";
 import { useSettings } from "./settings-context";
 
 export function AdvancedTab() {
@@ -85,6 +86,7 @@ export function AdvancedTab() {
       <Section title={a.recording}>
         <SwitchRow id="adv-remux" label={a.autoRemux} checked={d.autoRemux} onChange={(x) => upd({ autoRemux: x })} />
       </Section>
+      <PluginsSection value={d} onChange={upd} />
     </div>
   );
 }

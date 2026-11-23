@@ -143,11 +143,17 @@ pub unsafe fn startup(config_dir: &Path, locale: &str) -> anyhow::Result<String>
     }
     #[cfg(target_os = "linux")]
     {
-        // System or bundled OBS install (prefix/lib/obs-plugins, prefix/share/obs).
-        for prefix in [dir.join(".."), PathBuf::from("/usr"), PathBuf::from("/usr/local")] {
-            let data = prefix.join("share/obs/libobs");
-            if data.exists() {
-                sys::obs_add_data_path(cstr(&slash(&data)).as_ptr());
+        // AppImage: its own OBS build (usr/lib/obs-plugins, usr/share/obs), never the system one.
+        if let Some(app) = appimage_dir() {
+            sys::obs_add_data_path(cstr(&slash(&app.join("usr/share/obs/libobs"))).as_ptr());
+            sys::obs_add_module_path(cstr(&slash(&app.join("usr/lib/obs-plugins"))).as_ptr(), cstr(&format!("{}%module%/", slash(&app.join("usr/share/obs/obs-plugins")))).as_ptr());
+        } else {
+            // System or bundled OBS install (prefix/lib/obs-plugins, prefix/share/obs).
+            for prefix in [dir.join(".."), PathBuf::from("/usr"), PathBuf::from("/usr/local")] {
+                let data = prefix.join("share/obs/libobs");
+                if data.exists() {
+                    sys::obs_add_data_path(cstr(&slash(&data)).as_ptr());
+                }
             }
         }
     }
@@ -252,10 +258,167 @@ pub unsafe fn reset_audio(a: &AudioSettings) -> bool {
     sys::obs_reset_audio2(&ai)
 }
 
-pub unsafe fn load_modules() {
-    sys::obs_load_all_modules();
+extern "C" {
+    /// util/platform.h: checks the library's exports without loading it.
+    fn os_is_obs_plugin(path: *const std::os::raw::c_char) -> bool;
+}
+
+/// A module found in the module search paths.
+struct FoundModule {
+    name: String,
+    bin: String,
+    data: String,
+}
+
+unsafe extern "C" fn collect_module(param: *mut c_void, info: *const sys::obs_module_info2) {
+    let out = &mut *(param as *mut Vec<FoundModule>);
+    let info = &*info;
+    out.push(FoundModule { name: string(info.name), bin: string(info.bin_path), data: string(info.data_path) });
+}
+
+/// The AppImage mount point when running from one (its own OBS build lives inside).
+pub fn appimage_dir() -> Option<PathBuf> {
+    if !cfg!(target_os = "linux") {
+        return None;
+    }
+    std::env::var_os("APPIMAGE")?;
+    std::env::var_os("APPDIR").map(PathBuf::from)
+}
+
+/// Folders where third-party OBS plugins are installed: Vexcast's own one first, then the
+/// shared OBS Studio one (where plugin installers put them).
+pub fn plugin_folders(data_dir: &Path) -> Vec<PathBuf> {
+    let mut v = vec![data_dir.join("obs-plugins")];
+    if cfg!(windows) {
+        if let Some(pd) = std::env::var_os("ProgramData") {
+            v.push(PathBuf::from(pd).join("obs-studio").join("plugins"));
+        }
+    } else if let Some(home) = std::env::var_os("HOME").map(PathBuf::from) {
+        if cfg!(target_os = "macos") {
+            v.push(home.join("Library/Application Support/obs-studio/plugins"));
+        } else {
+            v.push(std::env::var_os("XDG_CONFIG_HOME").map(PathBuf::from).unwrap_or_else(|| home.join(".config")).join("obs-studio/plugins"));
+        }
+    }
+    v
+}
+
+/// Search patterns (binary, data) of a plugin folder, in each OS's plugin layout.
+fn plugin_patterns(root: &Path) -> (String, String) {
+    let r = slash(root);
+    if cfg!(target_os = "macos") {
+        (format!("{r}%module%.plugin/Contents/MacOS/"), format!("{r}%module%.plugin/Contents/Resources/"))
+    } else {
+        (format!("{r}%module%/bin/64bit/"), format!("{r}%module%/data/"))
+    }
+}
+
+fn under(path: &str, root: &Path) -> bool {
+    let p = path.replace('\\', "/").to_lowercase();
+    let r = slash(root).to_lowercase();
+    p.starts_with(&r)
+}
+
+/// What to load: third-party plugins (opt-in) minus the ones the user turned off.
+pub struct PluginPolicy<'a> {
+    pub third_party: bool,
+    pub disabled: &'a [String],
+    /// Written with the plugin's name while a third-party plugin loads, removed afterwards:
+    /// if it's still there on the next start, that plugin crashed Vexcast.
+    pub marker: &'a Path,
+}
+
+/// Load the bundled OBS modules and, when allowed, third-party plugins. Bundled modules win
+/// over same-named copies elsewhere; inside an AppImage, a system OBS install is ignored.
+pub unsafe fn load_modules(data_dir: &Path, policy: &PluginPolicy) -> Vec<super::model::ObsPlugin> {
+    use super::model::ObsPlugin;
+    let folders = plugin_folders(data_dir);
+    let _ = std::fs::create_dir_all(&folders[0]);
+    for f in &folders {
+        let (bin, data) = plugin_patterns(f);
+        sys::obs_add_module_path(cstr(&bin).as_ptr(), cstr(&data).as_ptr());
+    }
+    let mut found: Vec<FoundModule> = vec![];
+    sys::obs_find_modules2(Some(collect_module), &mut found as *mut _ as *mut c_void);
+    if found.is_empty() {
+        // Nothing found through our search: let libobs do its own thing.
+        sys::obs_load_all_modules();
+        sys::obs_log_loaded_modules();
+        sys::obs_post_load_modules();
+        return vec![];
+    }
+    let appdir = appimage_dir();
+    let is_third = |m: &FoundModule| folders.iter().any(|f| under(&m.bin, f));
+    // Bundled first so they take precedence over duplicates.
+    found.sort_by_key(|m| is_third(m));
+    let mut seen = std::collections::HashSet::new();
+    let mut out = vec![];
+    for m in &found {
+        let third = is_third(m);
+        if !third {
+            if let Some(a) = &appdir {
+                if !under(&m.bin, a) {
+                    continue;
+                }
+            }
+        }
+        if !os_is_obs_plugin(cstr(&m.bin).as_ptr()) {
+            continue;
+        }
+        let mut p = ObsPlugin { name: m.name.clone(), path: m.bin.clone(), third_party: third, state: "loaded".into(), error: None };
+        if !seen.insert(m.name.to_lowercase()) {
+            if third {
+                p.state = "duplicate".into();
+                out.push(p);
+            }
+            continue;
+        }
+        if third && !policy.third_party {
+            p.state = "off".into();
+            out.push(p);
+            continue;
+        }
+        if policy.disabled.iter().any(|d| d.eq_ignore_ascii_case(&m.name)) {
+            p.state = "disabled".into();
+            out.push(p);
+            continue;
+        }
+        if third {
+            let _ = std::fs::write(policy.marker, &m.name);
+        }
+        let mut module: *mut sys::obs_module_t = std::ptr::null_mut();
+        let code = sys::obs_open_module(&mut module, cstr(&m.bin).as_ptr(), cstr(&m.data).as_ptr());
+        if code != 0 || module.is_null() {
+            p.state = "failed".into();
+            p.error = Some(
+                match code {
+                    sys::MODULE_MISSING_EXPORTS => "Le faltan funciones de OBS: no es un plugin de OBS o es de otra versión".into(),
+                    sys::MODULE_INCOMPATIBLE_VER => "Compilado para una versión de OBS incompatible".into(),
+                    sys::MODULE_FAILED_TO_OPEN => "No se pudo abrir (faltan dependencias, por ejemplo Qt)".into(),
+                    sys::MODULE_HARDCODED_SKIP => "OBS lo bloquea".into(),
+                    c => format!("Error {c}"),
+                },
+            );
+        } else if !sys::obs_init_module(module) {
+            p.state = "failed".into();
+            p.error = Some("El plugin no se pudo iniciar".into());
+        }
+        if third {
+            let _ = std::fs::remove_file(policy.marker);
+            if p.state == "failed" {
+                tracing::warn!("third-party OBS plugin {} not loaded: {:?}", m.name, p.error);
+            } else {
+                tracing::info!("third-party OBS plugin loaded: {} ({})", m.name, m.bin);
+            }
+        }
+        // Bundled modules that open but decline to start (no AJA card, no NVIDIA GPU…) are normal.
+        if third || p.error.as_deref().is_some_and(|_| code != 0) {
+            out.push(p);
+        }
+    }
     sys::obs_log_loaded_modules();
     sys::obs_post_load_modules();
+    out
 }
 
 pub unsafe fn shutdown() {

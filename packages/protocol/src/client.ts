@@ -1,4 +1,5 @@
 import type {
+  ObsPlugins,
   HealthReport,
   SessionListItem,
   StreamSession,
@@ -166,6 +167,7 @@ export class VexcastClient {
   audioDevices = (kind: "input" | "output") => this.get<AudioDevice[]>(`/obs/audio-devices?kind=${kind}`);
   /** Audio monitoring output devices (Settings › Audio › Monitoring Device). */
   monitoringDevices = () => this.get<AudioDevice[]>("/obs/monitoring-devices");
+  obsPlugins = () => this.get<ObsPlugins>("/obs/plugins");
   encoders = () => this.get<EncoderType[]>("/obs/encoders");
   /** Encoder property schema, evaluated against the given settings. */
   encoderProperties = (id: string, settings: Record<string, unknown> = {}) =>

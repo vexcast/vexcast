@@ -330,6 +330,27 @@ export interface AdvancedSettings {
   hotkeyFocusBehavior: "never" | "focused" | "unfocused";
   autoRemux: boolean;
   confirmOnExit: boolean;
+  /** Load third-party OBS plugins from the plugin folders (takes effect on restart). */
+  thirdPartyPlugins: boolean;
+  /** Module names not loaded. A plugin that crashes Vexcast while loading is added here. */
+  disabledPlugins: string[];
+}
+
+/** An OBS module found at startup: every third-party plugin and bundled modules that failed to open. */
+export interface ObsPlugin {
+  /** Module name (file name without extension). */
+  name: string;
+  path: string;
+  thirdParty: boolean;
+  state: "loaded" | "failed" | "disabled" | "off" | "duplicate";
+  error: string | null;
+}
+
+/** GET /obs/plugins */
+export interface ObsPlugins {
+  /** Where third-party plugins are looked for (the first one is Vexcast's own). */
+  folders: string[];
+  plugins: ObsPlugin[];
 }
 
 export interface Hotkey {

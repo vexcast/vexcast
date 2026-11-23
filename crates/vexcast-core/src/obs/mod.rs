@@ -174,6 +174,7 @@ mod engine {
         pub(crate) rehearsal: AtomicBool,
         /// Registered macro hotkeys: (macro id, libobs hotkey id).
         pub(crate) macro_hotkeys: Mutex<Vec<(String, u64)>>,
+        plugins: Mutex<Vec<ObsPlugin>>,
     }
 
     impl Engine {
@@ -209,6 +210,7 @@ mod engine {
                 outputs: outputs::Outputs::default(),
                 rehearsal: AtomicBool::new(false),
                 macro_hotkeys: Mutex::new(vec![]),
+                plugins: Mutex::new(vec![]),
             })
         }
 
@@ -302,7 +304,23 @@ mod engine {
 
         fn init(self: &Arc<Self>) -> anyhow::Result<()> {
             let core = self.core().ok_or_else(|| anyhow::anyhow!("core stopped"))?;
-            let (video, audio, advanced, lang, collection) = core.read(|s| (s.video.clone(), s.audio.clone(), s.advanced.clone(), s.general.language.clone(), s.scene_collection.clone()));
+            let (video, audio, lang, collection) = core.read(|s| (s.video.clone(), s.audio.clone(), s.general.language.clone(), s.scene_collection.clone()));
+            // A third-party plugin that crashed Vexcast while loading last time: turn it off.
+            let marker = self.data_dir.join("obs-plugin-loading");
+            if let Ok(name) = std::fs::read_to_string(&marker) {
+                let _ = std::fs::remove_file(&marker);
+                let name = name.trim().to_string();
+                if !name.is_empty() {
+                    tracing::warn!("OBS plugin {name} crashed while loading; disabling it");
+                    core.update(|s| {
+                        if !s.advanced.disabled_plugins.contains(&name) {
+                            s.advanced.disabled_plugins.push(name.clone());
+                        }
+                    });
+                    core.notify("warning", format!("El plugin de OBS «{name}» cerró Vexcast al cargarse la última vez, así que lo desactivamos. Puedes reactivarlo en Ajustes → Avanzado."));
+                }
+            }
+            let advanced = core.read(|s| s.advanced.clone());
             let version = unsafe { runtime::startup(&self.data_dir.join("obs-config"), runtime::locale_for(&lang))? };
             tracing::info!("libobs {version} started");
             unsafe {
@@ -313,7 +331,8 @@ mod engine {
                 if !runtime::reset_audio(&audio) {
                     anyhow::bail!("obs_reset_audio falló");
                 }
-                runtime::load_modules();
+                let plugins = runtime::load_modules(&self.data_dir, &runtime::PluginPolicy { third_party: advanced.third_party_plugins, disabled: &advanced.disabled_plugins, marker: &marker });
+                *self.plugins.lock() = plugins;
                 if audio.monitoring_device_id != "default" {
                     sys::obs_set_audio_monitoring_device(cstr(&audio.monitoring_device_name).as_ptr(), cstr(&audio.monitoring_device_id).as_ptr());
                 }
@@ -377,6 +396,11 @@ mod engine {
                 drop(all);
                 runtime::shutdown();
             }
+        }
+
+        /// Third-party plugins and bundled modules that failed to load.
+        pub fn plugins(&self) -> ObsPlugins {
+            ObsPlugins { folders: runtime::plugin_folders(&self.data_dir).iter().map(|p| p.to_string_lossy().into_owned()).collect(), plugins: self.plugins.lock().clone() }
         }
 
         pub fn status(&self) -> EngineStatus {
@@ -521,6 +545,9 @@ mod stub {
         pub fn shutdown(&self) {}
         pub fn is_ready(&self) -> bool {
             false
+        }
+        pub fn plugins(&self) -> ObsPlugins {
+            ObsPlugins::default()
         }
         pub fn status(&self) -> EngineStatus {
             EngineStatus { error: Some("Compilado sin el motor de OBS".into()), server_time: crate::model::now_ms(), ..Default::default() }
